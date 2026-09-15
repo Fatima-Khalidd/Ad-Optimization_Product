@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 from app.models import Client, Invoice, Payment, User
-from sqlalchemy import inspect
+from sqlalchemy import UniqueConstraint, inspect
 from sqlalchemy.exc import IntegrityError
 
 EXPECTED_TABLES = {
@@ -90,3 +90,13 @@ def test_same_transaction_ref_cannot_be_used_twice_for_one_method(session):
     session.add(payment())
     with pytest.raises(IntegrityError):
         session.commit()
+
+
+def _unique_constraint_names(table):
+    return {c.name for c in table.constraints if isinstance(c, UniqueConstraint)}
+
+
+def test_unique_constraints_get_deterministic_names():
+    assert "uq_clients_user_id" in _unique_constraint_names(Client.__table__)
+    assert "uq_invoices_invoice_number" in _unique_constraint_names(Invoice.__table__)
+    assert "uq_payments_method_ref" in _unique_constraint_names(Payment.__table__)
