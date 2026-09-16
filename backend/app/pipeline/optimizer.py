@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from app.pipeline.analyzer import DimensionResult, SegmentMetrics
 from app.pipeline.config import PipelineConfig
@@ -77,7 +77,12 @@ def headline_waste(results: dict[str, DimensionResult]) -> float:
 
 def _as_decimal(value: Decimal | int | float | str) -> Decimal:
     """Coerce API-facing numeric inputs to Decimal without going through binary float."""
-    return value if isinstance(value, Decimal) else Decimal(str(value))
+    if isinstance(value, Decimal):
+        return value
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, TypeError) as exc:
+        raise ValueError(f"not a number: {value!r}") from exc
 
 
 def calculate_fee(
@@ -95,6 +100,8 @@ def calculate_fee(
         raise ValueError("base_fee and confirmed_recovered_waste must be >= 0")
     if not (Decimal("0") <= performance_fee_pct <= Decimal("100")):
         raise ValueError("performance_fee_pct must be between 0 and 100")
+    if cap is not None and cap < 0:
+        raise ValueError("cap must be >= 0")
 
     performance_fee = (confirmed_recovered_waste * performance_fee_pct / Decimal("100")).quantize(
         TWO_PLACES, rounding=ROUND_HALF_UP

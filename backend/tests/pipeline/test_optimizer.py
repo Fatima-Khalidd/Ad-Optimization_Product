@@ -131,3 +131,21 @@ def test_fee_zero_recovered_waste_is_just_base_fee():
 def test_fee_rejects_negative_or_out_of_range_inputs(base, pct, waste):
     with pytest.raises(ValueError):
         calculate_fee(base, pct, waste)
+
+
+def test_fee_rejects_negative_cap():
+    with pytest.raises(ValueError):
+        calculate_fee(15000, 20, 1000, cap=Decimal("-500"))
+
+
+def test_fee_zero_cap_zeroes_performance_fee():
+    fee = calculate_fee(Decimal("15000"), Decimal("20"), Decimal("23000"), cap=Decimal("0"))
+
+    assert fee.performance_fee == Decimal("0.00")
+    assert fee.total == Decimal("15000.00")
+    assert fee.cap_applied is True
+
+
+def test_fee_rejects_non_numeric_input():
+    with pytest.raises(ValueError):
+        calculate_fee("abc", 20, 1000)
