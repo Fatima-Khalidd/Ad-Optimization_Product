@@ -2,7 +2,6 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
 
 jobs:
@@ -28,6 +27,8 @@ jobs:
       - run: pytest
       - name: Migration applies from empty
         run: DATABASE_URL=sqlite:///./ci.db alembic upgrade head
+      - name: No model/migration drift
+        run: DATABASE_URL=sqlite:///./ci.db alembic check
 
   frontend:
     runs-on: ubuntu-latest
@@ -43,5 +44,5 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run lint
-      - run: npx tsc --noEmit
       - run: npm run build
+      - run: npx tsc --noEmit

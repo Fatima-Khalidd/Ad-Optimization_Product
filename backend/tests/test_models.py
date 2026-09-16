@@ -2,9 +2,10 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
-from app.models import Client, Invoice, Payment, User
 from sqlalchemy import UniqueConstraint, inspect
 from sqlalchemy.exc import IntegrityError
+
+from app.models import Client, Invoice, Payment, User
 
 EXPECTED_TABLES = {
     "users",
@@ -94,6 +95,18 @@ def test_same_transaction_ref_cannot_be_used_twice_for_one_method(session):
 
 def _unique_constraint_names(table):
     return {c.name for c in table.constraints if isinstance(c, UniqueConstraint)}
+
+
+def test_client_with_nonexistent_user_id_violates_foreign_key(session):
+    client = Client(
+        user_id=999999,
+        business_name="Ghost Client",
+        base_fee=Decimal("15000.00"),
+        performance_fee_pct=Decimal("20.00"),
+    )
+    session.add(client)
+    with pytest.raises(IntegrityError):
+        session.flush()
 
 
 def test_unique_constraints_get_deterministic_names():
