@@ -1,0 +1,4 @@
+date,campaign_id,placement,age_group,gender,device,time_slot,spend,impressions,clicks,conversions,revenue
+2026-08-01,C1,FB Feed,25-34,M,Phone,9,1200.50,10000,250,5,12500
+2026-08-01,C1,Audience Network,25-34,F,mobile,evening,800,9000,180,0,0
+2026-08-02,C1,ig_stories,18-24,U,desktop,14,300,2000,40,1,2500

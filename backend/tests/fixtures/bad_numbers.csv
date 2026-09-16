@@ -1,0 +1,5 @@
+date,campaign_id,placement,age_group,gender,device,time_slot,spend,impressions,clicks,conversions,revenue
+2026-08-01,C1,feed,25-34,m,mobile,9,abc,1000,20,1,500
+2026-08-02,C1,feed,25-34,m,mobile,9,-50,1000,20,1,500
+2026-08-03,C1,feed,25-34,m,mobile,9,100,1000,2000,1,500
+not-a-date,C1,feed,25-34,m,mobile,9,100,1000,20,1,500
