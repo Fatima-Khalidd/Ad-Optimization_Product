@@ -170,3 +170,15 @@ def test_empty_dimension_totals_are_floats():
     assert result.segments == []
     assert isinstance(result.total_wasted_spend, float)
     assert result.total_wasted_spend == 0.0
+
+
+def test_single_segment_dimension_is_never_flagged():
+    df = pd.DataFrame([_row("feed", 20000, 800, 10)])
+
+    result = analyze_dimension(df, "placement", CFG)
+
+    assert result.benchmark_cpa == 2000.0
+    seg = _by_segment(result)
+    assert seg["feed"].is_flagged is False
+    assert result.total_wasted_spend == 0.0
+    assert result.flagged == []

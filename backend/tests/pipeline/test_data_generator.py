@@ -55,3 +55,13 @@ def test_written_csv_round_trips_through_loader(tmp_path: Path):
     assert result.ok, result.errors
     assert result.row_count == 3 * 4 * 5 * 3 * 4
     assert result.warnings == []
+
+
+def test_sample_csv_uses_lf_line_endings(tmp_path: Path):
+    df = generate_dataset(days=3, seed=5)
+    path = write_sample_csv(tmp_path / "sample.csv", days=3, seed=5)
+
+    data = path.read_bytes()
+
+    assert b"\r\n" not in data
+    assert data.count(b"\n") == len(df) + 1

@@ -31,6 +31,13 @@ def generate_dataset(
 
     `waste` multiplies the CPA of named segments, e.g. {"placement": {"audience_network": 3.0}}
     makes that placement convert a third as often, so its CPA is ~3x the account average.
+
+    Detection floor: the injected segment is itself part of the `account_avg` benchmark pool
+    (e.g. 1 of 4 placements ~= 25% weight), so its own inflated spend/CPA drags the benchmark
+    up with it. A per-segment CPA multiplier needs to be roughly 2.0x before the resulting
+    CPA reliably crosses `waste_multiplier` (1.5x) of that inflated benchmark — probing showed
+    ~1.6x only flagged in 1/10 seeds, while 2.0x flagged in 10/10. Golden tests should inject
+    waste of >= 2.0x to get a reliable, seed-independent result.
     """
     rng = np.random.default_rng(seed)
     waste = waste or {}
@@ -75,5 +82,5 @@ def generate_dataset(
 def write_sample_csv(path: Path, **kwargs) -> Path:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    generate_dataset(**kwargs).to_csv(path, index=False)
+    generate_dataset(**kwargs).to_csv(path, index=False, lineterminator="\n")
     return path
