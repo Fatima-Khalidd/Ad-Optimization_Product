@@ -49,6 +49,20 @@ def _normalise_category(value: str) -> str:
     return value
 
 
+# Columns whose values are aliased/collapsed via _normalise_category + CATEGORY_ALIASES.
+# campaign_id and age_group are shown to clients verbatim (or near-verbatim) and must not
+# have hyphens collapsed or (for campaign_id) be lowercased.
+_ALIASED_CATEGORY_COLUMNS = ("placement", "gender", "device", "time_slot")
+
+
+def _normalise_campaign_id(value: str) -> str:
+    return value.strip()
+
+
+def _normalise_age_group(value: str) -> str:
+    return value.strip().lower()
+
+
 def _bucket_time_slot(value: str) -> str | None:
     """Return a bucket name, '' for blank, or None if invalid."""
     if value == "":
@@ -124,8 +138,13 @@ def load_csv(
 
     # --- categories ---
     for col in CATEGORY_COLUMNS:
-        values = df[col].map(_normalise_category)
-        aliases = CATEGORY_ALIASES.get(col, {})
+        if col == "campaign_id":
+            values = df[col].map(_normalise_campaign_id)
+        elif col == "age_group":
+            values = df[col].map(_normalise_age_group)
+        else:
+            values = df[col].map(_normalise_category)
+        aliases = CATEGORY_ALIASES.get(col, {}) if col in _ALIASED_CATEGORY_COLUMNS else {}
         values = values.map(lambda v, a=aliases: a.get(v, v))
         if col == "campaign_id":
             for r in row_numbers[(values == "").to_numpy()]:

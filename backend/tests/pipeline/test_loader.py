@@ -110,3 +110,28 @@ def test_time_slot_hour_out_of_range_is_an_error():
 
     assert not result.ok
     assert (result.errors[0].row, result.errors[0].column) == (1, "time_slot")
+
+
+def test_age_group_keeps_hyphen_and_campaign_id_is_only_trimmed():
+    csv = io.StringIO(
+        "date,campaign_id,placement,age_group,gender,device,time_slot,spend,impressions,clicks,conversions,revenue\n"
+        "2026-08-01, CAMP-001 ,FB Feed, 25-34 ,m,mobile,9,100,1000,10,1,500\n"
+    )
+    result = load_csv(csv)
+
+    assert result.ok, result.errors
+    df = result.df
+    assert df["age_group"].iloc[0] == "25-34"
+    assert df["campaign_id"].iloc[0] == "CAMP-001"
+    assert df["placement"].iloc[0] == "facebook_feed"
+
+
+def test_non_integer_in_count_column_is_an_error():
+    csv = io.StringIO(
+        "date,campaign_id,placement,age_group,gender,device,time_slot,spend,impressions,clicks,conversions,revenue\n"
+        "2026-08-01,C1,feed,25-34,m,mobile,9,100,1000,20.5,1,500\n"
+    )
+    result = load_csv(csv)
+
+    assert not result.ok
+    assert any(e.column == "clicks" and e.row == 1 for e in result.errors)
