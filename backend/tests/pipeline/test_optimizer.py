@@ -149,3 +149,12 @@ def test_fee_zero_cap_zeroes_performance_fee():
 def test_fee_rejects_non_numeric_input():
     with pytest.raises(ValueError):
         calculate_fee("abc", 20, 1000)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [float("inf"), float("-inf"), float("nan"), Decimal("Infinity"), Decimal("NaN")],
+)
+def test_fee_rejects_non_finite_recovered_waste(value):
+    with pytest.raises(ValueError):
+        calculate_fee(15000, 20, value)

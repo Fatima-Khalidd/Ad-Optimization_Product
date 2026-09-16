@@ -135,3 +135,91 @@ def test_non_integer_in_count_column_is_an_error():
 
     assert not result.ok
     assert any(e.column == "clicks" and e.row == 1 for e in result.errors)
+
+
+def test_infinite_spend_is_an_error():
+    csv = io.StringIO(
+        "date,campaign_id,placement,age_group,gender,device,time_slot,spend,impressions,clicks,conversions,revenue\n"
+        "2026-08-01,C1,feed,25-34,m,mobile,9,inf,1000,10,1,500\n"
+    )
+    result = load_csv(csv)
+
+    assert result.ok is False
+    assert any(e.column == "spend" and e.row == 1 for e in result.errors)
+
+
+def test_negative_infinite_spend_is_an_error():
+    csv = io.StringIO(
+        "date,campaign_id,placement,age_group,gender,device,time_slot,spend,impressions,clicks,conversions,revenue\n"
+        "2026-08-01,C1,feed,25-34,m,mobile,9,-inf,1000,10,1,500\n"
+    )
+    result = load_csv(csv)
+
+    assert result.ok is False
+    assert any(e.column == "spend" and e.row == 1 for e in result.errors)
+
+
+def test_nan_text_spend_is_an_error():
+    csv = io.StringIO(
+        "date,campaign_id,placement,age_group,gender,device,time_slot,spend,impressions,clicks,conversions,revenue\n"
+        "2026-08-01,C1,feed,25-34,m,mobile,9,nan,1000,10,1,500\n"
+    )
+    result = load_csv(csv)
+
+    assert result.ok is False
+    assert any(e.column == "spend" and e.row == 1 for e in result.errors)
+
+
+def test_zero_byte_file_is_an_error():
+    result = load_csv(io.StringIO(""))
+
+    assert not result.ok
+    assert result.df is None
+    assert result.errors[0].row is None
+    assert result.errors[0].column is None
+    assert "empty" in result.errors[0].message
+
+
+def test_non_utf8_file_is_an_error(tmp_path):
+    path = tmp_path / "latin1.csv"
+    header = (
+        "date,campaign_id,placement,age_group,gender,device,time_slot,spend,impressions,"
+        "clicks,conversions,revenue\n"
+    )
+    row = "2026-08-01,café,feed,25-34,m,mobile,9,100,1000,10,1,500\n"
+    with open(path, "wb") as f:
+        f.write(header.encode("utf-8"))
+        f.write(row.encode("latin-1"))
+
+    result = load_csv(path)
+
+    assert not result.ok
+    assert result.df is None
+    assert result.errors[0].row is None
+    assert "utf-8" in result.errors[0].message.lower()
+
+
+def test_malformed_csv_raises_parser_error_is_handled():
+    csv = io.StringIO(
+        "date,campaign_id,placement,age_group,gender,device,time_slot,spend,impressions,"
+        "clicks,conversions,revenue\n"
+        '2026-08-01,"C1,feed,25-34,m,mobile,9,100,1000,10,1,500\n'
+        "2026-08-02,C2,feed,25-34,m,mobile,9,100,1000,10,1,500\n"
+    )
+    result = load_csv(csv)
+
+    assert not result.ok
+    assert result.df is None
+    assert result.errors[0].row is None
+    assert "could not parse csv" in result.errors[0].message.lower()
+
+
+def test_blank_campaign_id_is_an_error():
+    csv = io.StringIO(
+        "date,campaign_id,placement,age_group,gender,device,time_slot,spend,impressions,clicks,conversions,revenue\n"
+        "2026-08-01,,feed,25-34,m,mobile,9,100,1000,10,1,500\n"
+    )
+    result = load_csv(csv)
+
+    assert not result.ok
+    assert any(e.column == "campaign_id" and e.row == 1 for e in result.errors)

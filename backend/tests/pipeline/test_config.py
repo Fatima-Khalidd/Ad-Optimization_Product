@@ -60,3 +60,29 @@ def test_to_dict_is_json_safe_and_roundtrips():
     json.dumps(snapshot)  # must not raise
     assert snapshot["performance_fee_cap"] == "50000"
     assert PipelineConfig.from_overrides(snapshot) == cfg
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"min_spend": "abc"},
+        {"min_clicks": -10},
+        {"waste_multiplier": 1.0},
+        {"performance_fee_pct": -5},
+        {"max_rows": 0},
+        {"max_cut_pct": 1.5},
+        {"min_clicks": True},
+    ],
+)
+def test_from_overrides_rejects_bad_values(override):
+    with pytest.raises(ValueError):
+        PipelineConfig.from_overrides(override)
+
+
+def test_from_overrides_coerces_numeric_strings_and_whole_number_floats():
+    cfg = PipelineConfig.from_overrides({"min_spend": "6000", "min_clicks": 150.0})
+
+    assert cfg.min_spend == 6000.0
+    assert isinstance(cfg.min_spend, float)
+    assert cfg.min_clicks == 150
+    assert isinstance(cfg.min_clicks, int)

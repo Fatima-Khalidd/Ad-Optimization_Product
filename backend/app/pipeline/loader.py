@@ -8,6 +8,7 @@ from datetime import date
 from pathlib import Path
 from typing import IO
 
+import numpy as np
 import pandas as pd
 
 from app.pipeline.config import (
@@ -84,7 +85,17 @@ def load_csv(
     errors: list[RowIssue] = []
     warnings: list[RowIssue] = []
 
-    raw = pd.read_csv(source, dtype=str, keep_default_na=False)
+    try:
+        raw = pd.read_csv(source, dtype=str, keep_default_na=False)
+    except pd.errors.EmptyDataError:
+        errors.append(RowIssue(None, None, "file is empty"))
+        return LoadResult(None, errors, warnings)
+    except pd.errors.ParserError as exc:
+        errors.append(RowIssue(None, None, f"could not parse CSV: {exc}"))
+        return LoadResult(None, errors, warnings)
+    except UnicodeDecodeError:
+        errors.append(RowIssue(None, None, "file is not UTF-8 encoded"))
+        return LoadResult(None, errors, warnings)
     raw.columns = [str(c).strip().lower() for c in raw.columns]
 
     missing = [c for c in REQUIRED_COLUMNS if c not in raw.columns]
@@ -117,6 +128,9 @@ def load_csv(
         numeric = pd.to_numeric(stripped, errors="coerce")
         for r in row_numbers[numeric.isna().to_numpy()]:
             errors.append(RowIssue(int(r), col, f"not a number: {df.at[r - 1, col]!r}"))
+        non_finite = numeric.notna() & ~np.isfinite(numeric)
+        for r in row_numbers[non_finite.to_numpy()]:
+            errors.append(RowIssue(int(r), col, f"not a finite number: {df.at[r - 1, col]!r}"))
         for r in row_numbers[(numeric < 0).fillna(False).to_numpy()]:
             errors.append(RowIssue(int(r), col, f"negative value {numeric.iloc[r - 1]}"))
         df[col] = numeric

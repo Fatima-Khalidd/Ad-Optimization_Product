@@ -124,3 +124,10 @@ def analyze_dimension(df: pd.DataFrame, dimension: str, config: PipelineConfig) 
 
 def analyze_all_dimensions(df: pd.DataFrame, config: PipelineConfig) -> dict[str, DimensionResult]:
     return {dim: analyze_dimension(df, dim, config) for dim in DIMENSIONS}
+
+
+def account_total_spend(df: pd.DataFrame) -> float:
+    """Total spend across every loaded row, regardless of which dimensions are populated."""
+    if df.empty:
+        return 0.0
+    return float(df["spend"].sum())

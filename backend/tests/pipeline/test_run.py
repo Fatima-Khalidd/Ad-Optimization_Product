@@ -31,10 +31,11 @@ def test_cli_reports_validation_errors_and_exits_2(capsys):
 def test_cli_accepts_json_overrides(tmp_path, capsys):
     path = write_sample_csv(tmp_path / "s.csv", days=10, seed=1)
 
-    exit_code = main([str(path), "--overrides", '{"waste_multiplier": 0.5}'])
+    # waste_multiplier must be > 1 (see PipelineConfig.from_overrides validation).
+    exit_code = main([str(path), "--overrides", '{"waste_multiplier": 2.0}'])
 
     assert exit_code == 0
-    assert "waste_multiplier=0.5" in capsys.readouterr().out
+    assert "waste_multiplier=2.0" in capsys.readouterr().out
 
 
 def test_missing_file_exits_2_with_message(capsys):
@@ -63,3 +64,24 @@ def test_unknown_override_key_exits_2(tmp_path, capsys):
     err = capsys.readouterr().err
     assert exit_code == 2
     assert "error: invalid --overrides:" in err
+
+
+def test_non_object_overrides_exits_2_with_clear_message(tmp_path, capsys):
+    path = write_sample_csv(tmp_path / "s.csv", days=10, seed=1)
+
+    exit_code = main([str(path), "--overrides", "[1,2]"])
+
+    err = capsys.readouterr().err
+    assert exit_code == 2
+    assert "error: invalid --overrides: must be a JSON object" in err
+
+
+def test_cli_prints_account_spend_before_headline_waste(tmp_path, capsys):
+    path = write_sample_csv(tmp_path / "s.csv", days=10, seed=1)
+
+    exit_code = main([str(path)])
+
+    out = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Account spend: Rs." in out
+    assert out.index("Account spend:") < out.index("Headline waste")

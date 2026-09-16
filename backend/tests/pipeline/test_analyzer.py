@@ -1,8 +1,13 @@
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
-from app.pipeline.analyzer import analyze_all_dimensions, analyze_dimension
+from app.pipeline.analyzer import account_total_spend, analyze_all_dimensions, analyze_dimension
 from app.pipeline.config import PipelineConfig
+from app.pipeline.loader import load_csv
+
+FIXTURES = Path(__file__).parent.parent / "fixtures"
 
 CFG = PipelineConfig.from_overrides(
     {
@@ -182,3 +187,45 @@ def test_single_segment_dimension_is_never_flagged():
     assert seg["feed"].is_flagged is False
     assert result.total_wasted_spend == 0.0
     assert result.flagged == []
+
+
+def test_best_mode_with_no_qualifying_segment_gives_no_benchmark():
+    """min_conversions_for_best=5: no significant segment reaches it, so 'best' has nothing to
+    benchmark against and no segment can be flagged high_cpa. A significant zero-conversion
+    segment is still flagged regardless of the missing benchmark."""
+    cfg = PipelineConfig.from_overrides({**CFG.to_dict(), "benchmark_mode": "best"})
+    df = pd.DataFrame(
+        [
+            _row("a", 10000, 500, 3),  # significant, 3 conversions < min_conversions_for_best
+            _row("b", 8000, 400, 4),  # significant, 4 conversions < min_conversions_for_best
+            _row("c", 3000, 200, 0),  # significant, zero conversions -> still flagged
+        ]
+    )
+
+    result = analyze_dimension(df, "placement", cfg)
+
+    assert result.benchmark_cpa is None
+    assert [s.flag_reason for s in result.flagged] == ["zero_conversions"]
+    seg = _by_segment(result)
+    assert seg["c"].is_flagged is True
+    assert seg["a"].is_flagged is False
+    assert seg["b"].is_flagged is False
+
+
+def test_account_total_spend_sums_every_row_once():
+    result = load_csv(FIXTURES / "partial_dimensions.csv")
+    assert result.ok, result.errors
+
+    total = account_total_spend(result.df)
+
+    assert total == 3500.0
+    # each dimension's total_spend only sees the rows where that dimension is populated
+    by_dim = analyze_all_dimensions(result.df, PipelineConfig())
+    assert by_dim["placement"].total_spend == 1500.0
+    assert by_dim["age_group"].total_spend == 1500.0
+    assert by_dim["time_slot"].total_spend == 1500.0
+
+
+def test_account_total_spend_is_zero_for_empty_frame():
+    df = pd.DataFrame(columns=["spend"])
+    assert account_total_spend(df) == 0.0

@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from app.pipeline.analyzer import analyze_all_dimensions
+from app.pipeline.analyzer import account_total_spend, analyze_all_dimensions
 from app.pipeline.config import PipelineConfig
 from app.pipeline.loader import load_csv
 from app.pipeline.optimizer import build_recommendations, headline_waste
@@ -35,8 +35,17 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
-        config = PipelineConfig.from_overrides(json.loads(args.overrides))
-    except (json.JSONDecodeError, ValueError) as exc:
+        parsed_overrides = json.loads(args.overrides)
+    except json.JSONDecodeError as exc:
+        print(f"error: invalid --overrides: {exc}", file=sys.stderr)
+        return 2
+    if not isinstance(parsed_overrides, dict):
+        print("error: invalid --overrides: must be a JSON object", file=sys.stderr)
+        return 2
+
+    try:
+        config = PipelineConfig.from_overrides(parsed_overrides)
+    except ValueError as exc:
         print(f"error: invalid --overrides: {exc}", file=sys.stderr)
         return 2
 
@@ -55,6 +64,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"Rows: {result.row_count}   Dates: {result.date_range[0]} to {result.date_range[1]}")
     print(f"Config: {', '.join(f'{k}={v}' for k, v in config.to_dict().items())}")
+    print(f"Account spend: Rs. {_fmt(account_total_spend(result.df))}")
     print(f"Headline waste: Rs. {_fmt(headline_waste(results))}\n")
     for dim, r in results.items():
         print(

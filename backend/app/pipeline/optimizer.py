@@ -78,11 +78,15 @@ def headline_waste(results: dict[str, DimensionResult]) -> float:
 def _as_decimal(value: Decimal | int | float | str) -> Decimal:
     """Coerce API-facing numeric inputs to Decimal without going through binary float."""
     if isinstance(value, Decimal):
-        return value
-    try:
-        return Decimal(str(value))
-    except (InvalidOperation, TypeError) as exc:
-        raise ValueError(f"not a number: {value!r}") from exc
+        result = value
+    else:
+        try:
+            result = Decimal(str(value))
+        except (InvalidOperation, TypeError) as exc:
+            raise ValueError(f"not a number: {value!r}") from exc
+    if not result.is_finite():
+        raise ValueError(f"not a finite number: {value!r}")
+    return result
 
 
 def calculate_fee(
