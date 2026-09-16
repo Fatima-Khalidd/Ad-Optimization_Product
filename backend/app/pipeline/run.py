@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from app.pipeline.analyzer import analyze_all_dimensions
 from app.pipeline.config import PipelineConfig
@@ -17,12 +18,28 @@ def _fmt(amount: float | None) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8")
+            except (ValueError, OSError):
+                pass
+
     parser = argparse.ArgumentParser(description="Run the waste analysis on a CSV.")
     parser.add_argument("csv")
     parser.add_argument("--overrides", default="{}", help="JSON, e.g. '{\"waste_multiplier\": 2}'")
     args = parser.parse_args(argv)
 
-    config = PipelineConfig.from_overrides(json.loads(args.overrides))
+    if not Path(args.csv).is_file():
+        print(f"error: file not found: {args.csv}", file=sys.stderr)
+        return 2
+
+    try:
+        config = PipelineConfig.from_overrides(json.loads(args.overrides))
+    except (json.JSONDecodeError, ValueError) as exc:
+        print(f"error: invalid --overrides: {exc}", file=sys.stderr)
+        return 2
+
     result = load_csv(args.csv, config)
     for w in result.warnings[:20]:
         print(f"warning: row {w.row}, {w.column}: {w.message}")

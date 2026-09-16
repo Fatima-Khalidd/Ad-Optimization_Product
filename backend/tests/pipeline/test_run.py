@@ -35,3 +35,31 @@ def test_cli_accepts_json_overrides(tmp_path, capsys):
 
     assert exit_code == 0
     assert "waste_multiplier=0.5" in capsys.readouterr().out
+
+
+def test_missing_file_exits_2_with_message(capsys):
+    exit_code = main(["does_not_exist.csv"])
+
+    err = capsys.readouterr().err
+    assert exit_code == 2
+    assert "error: file not found: does_not_exist.csv" in err
+
+
+def test_invalid_overrides_json_exits_2(tmp_path, capsys):
+    path = write_sample_csv(tmp_path / "s.csv", days=10, seed=1)
+
+    exit_code = main([str(path), "--overrides", "{not json"])
+
+    err = capsys.readouterr().err
+    assert exit_code == 2
+    assert "error: invalid --overrides:" in err
+
+
+def test_unknown_override_key_exits_2(tmp_path, capsys):
+    path = write_sample_csv(tmp_path / "s.csv", days=10, seed=1)
+
+    exit_code = main([str(path), "--overrides", '{"nope": 1}'])
+
+    err = capsys.readouterr().err
+    assert exit_code == 2
+    assert "error: invalid --overrides:" in err
