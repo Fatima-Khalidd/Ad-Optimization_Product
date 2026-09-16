@@ -65,6 +65,8 @@ class PipelineConfig:
     # --- flagging ---
     benchmark_mode: BenchmarkMode = "account_avg"
     waste_multiplier: float = 1.5
+    # gated by significance — only effective when >= min_spend, since non-significant
+    # segments are never flagged
     min_spend_zero_conv: float = 2000.0
     min_conversions_for_best: int = 10
     # --- recommendations ---

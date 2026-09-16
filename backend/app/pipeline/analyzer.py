@@ -50,14 +50,17 @@ def _benchmark(grouped: pd.DataFrame, config: PipelineConfig) -> float | None:
         if candidates.empty:
             return None
         return float((candidates["spend"] / candidates["conversions"]).min())
-    total_conv = sig["conversions"].sum()
+    # Zero-conversion segments contribute spend with nothing to divide it by, which would
+    # inflate the benchmark and could un-flag a genuinely wasteful segment. Exclude them.
+    converting = sig[sig["conversions"] > 0]
+    total_conv = converting["conversions"].sum()
     if total_conv == 0:
         return None
-    return float(sig["spend"].sum() / total_conv)
+    return float(converting["spend"].sum() / total_conv)
 
 
 def analyze_dimension(df: pd.DataFrame, dimension: str, config: PipelineConfig) -> DimensionResult:
-    rows = df[df[dimension].astype(str) != ""]
+    rows = df[df[dimension].fillna("").astype(str) != ""]
     grouped = (
         rows.groupby(dimension, sort=False)[METRIC_COLUMNS]
         .sum()
@@ -114,7 +117,7 @@ def analyze_dimension(df: pd.DataFrame, dimension: str, config: PipelineConfig) 
         dimension=dimension,
         benchmark_cpa=benchmark,
         total_spend=float(grouped["spend"].sum()),
-        total_wasted_spend=sum(s.wasted_spend for s in segments),
+        total_wasted_spend=sum((s.wasted_spend for s in segments), 0.0),
         segments=segments,
     )
 

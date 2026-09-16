@@ -74,12 +74,12 @@ def test_zero_conversion_segment_is_flagged_with_full_spend_as_waste():
 
     result = analyze_dimension(df, "placement", CFG)
 
-    assert result.benchmark_cpa == pytest.approx(750.0)
+    assert result.benchmark_cpa == pytest.approx(705.88, abs=0.01)
     seg = _by_segment(result)
     assert seg["reels"].is_flagged and seg["reels"].flag_reason == "zero_conversions"
     assert seg["reels"].wasted_spend == 1500
-    assert seg["audience_network"].wasted_spend == pytest.approx(5000.0)
-    assert result.total_wasted_spend == pytest.approx(6500.0)
+    assert seg["audience_network"].wasted_spend == pytest.approx(5176.47, abs=0.01)
+    assert result.total_wasted_spend == pytest.approx(6676.47, abs=0.01)
 
 
 def test_best_benchmark_mode_uses_cheapest_segment_with_enough_conversions():
@@ -140,3 +140,33 @@ def test_analyze_all_dimensions_returns_every_dimension():
 
     assert set(results) == {"placement", "age_group", "time_slot"}
     assert results["age_group"].segments[0].segment == "25-34"
+
+
+def test_zero_conversion_segment_does_not_inflate_benchmark():
+    df = pd.DataFrame(
+        [
+            _row("A", 84000, 2000, 40),
+            _row("B", 40000, 1500, 50),
+            _row("D", 6000, 200, 0),
+        ]
+    )
+
+    result = analyze_dimension(df, "placement", CFG)
+
+    assert result.benchmark_cpa == pytest.approx(1377.7778, abs=0.01)
+    seg = _by_segment(result)
+    assert seg["A"].flag_reason == "high_cpa"
+    assert seg["A"].wasted_spend == pytest.approx(28888.89, abs=0.01)
+    assert seg["D"].flag_reason == "zero_conversions"
+    assert seg["D"].wasted_spend == 6000.0
+    assert result.total_wasted_spend == pytest.approx(34888.89, abs=0.01)
+
+
+def test_empty_dimension_totals_are_floats():
+    df = pd.DataFrame([_row("feed", 5000, 200, 10, time_slot="")])
+
+    result = analyze_dimension(df, "time_slot", CFG)
+
+    assert result.segments == []
+    assert isinstance(result.total_wasted_spend, float)
+    assert result.total_wasted_spend == 0.0
