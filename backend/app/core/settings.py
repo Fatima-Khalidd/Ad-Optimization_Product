@@ -20,12 +20,24 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./dev.db"
     secret_key: str = _DEV_SECRET
 
+    # Auth (docs/PLAN.md section 5 "Auth details").
+    access_token_minutes: int = 15
+    refresh_token_days: int = 7
+    # Off by default so http://127.0.0.1 development works; never off in production.
+    cookie_secure: bool = False
+
     @model_validator(mode="after")
     def _reject_insecure_prod_defaults(self) -> "Settings":
         if self.env == "prod" and (
             self.secret_key == _DEV_SECRET or self.database_url.startswith("sqlite")
         ):
             raise ValueError("prod requires a non-default SECRET_KEY and a non-sqlite DATABASE_URL")
+        return self
+
+    @model_validator(mode="after")
+    def _force_secure_cookies_in_prod(self) -> "Settings":
+        if self.env == "prod":
+            self.cookie_secure = True
         return self
 
 

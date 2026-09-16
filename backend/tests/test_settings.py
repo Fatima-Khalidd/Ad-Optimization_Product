@@ -67,3 +67,42 @@ def test_env_file_points_at_backend_dotenv():
 
     assert env_file.name == ".env"
     assert env_file.parent.name == "backend"
+
+
+def test_auth_settings_have_spec_defaults(monkeypatch):
+    monkeypatch.setenv("ENV", "dev")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./x.db")
+    monkeypatch.setenv("SECRET_KEY", "s")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.access_token_minutes == 15
+    assert settings.refresh_token_days == 7
+    assert settings.cookie_secure is False
+
+
+def test_cookie_secure_is_forced_on_in_prod(monkeypatch):
+    # Non-sqlite URL and non-default secret so this satisfies the existing
+    # prod-safety validator (test_prod_rejects_* above) and isolates the
+    # cookie_secure-forcing behavior under test.
+    monkeypatch.setenv("ENV", "prod")
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:pw@host/db")
+    monkeypatch.setenv("SECRET_KEY", "a-real-production-secret")
+    monkeypatch.setenv("COOKIE_SECURE", "false")  # must not be able to weaken prod
+
+    assert Settings(_env_file=None).cookie_secure is True
+
+
+def test_token_lifetimes_come_from_the_environment(monkeypatch):
+    monkeypatch.setenv("ENV", "dev")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./x.db")
+    monkeypatch.setenv("SECRET_KEY", "s")
+    monkeypatch.setenv("ACCESS_TOKEN_MINUTES", "30")
+    monkeypatch.setenv("REFRESH_TOKEN_DAYS", "14")
+    monkeypatch.setenv("COOKIE_SECURE", "true")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.access_token_minutes == 30
+    assert settings.refresh_token_days == 14
+    assert settings.cookie_secure is True
