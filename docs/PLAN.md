@@ -98,7 +98,7 @@ All thresholds live in `pipeline/config.py` as defaults. The admin can override 
 1. `groupby(dimension)` → spend, impressions, clicks, conversions, revenue, CPA, CTR, CVR, ROAS.
 2. **Significant** segment: `spend ≥ MIN_SPEND` and `clicks ≥ MIN_CLICKS`. Segments that aren't significant are shown but never flagged.
 3. **Benchmark CPA** (`BENCHMARK_MODE`):
-   - `account_avg` (default): total spend ÷ total conversions across significant segments.
+   - `account_avg` (default): total spend ÷ total conversions across significant segments **that have at least one conversion**. Zero-conversion segments are excluded from the benchmark (they say nothing about what a conversion normally costs, and including their spend would raise the benchmark and hide real waste); they are still flagged separately by rule 4.
    - `best`: lowest CPA among significant segments with at least `MIN_CONVERSIONS_FOR_BEST` conversions.
 4. **Flag** a segment when `CPA > WASTE_MULTIPLIER × benchmark`, or when it has zero conversions and `spend ≥ MIN_SPEND_ZERO_CONV`.
 5. **Wasted spend** for a flagged segment = `spend − conversions × benchmark_CPA`, floored at 0. This is the spend beyond what those conversions should have cost. A zero-conversion segment counts its entire spend as waste.
