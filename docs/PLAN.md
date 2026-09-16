@@ -5,7 +5,7 @@ It adds the details the spec leaves open and fixes a few spec issues that would 
 
 Each stage ends with a **checkpoint**: you review and test it, and nothing moves to the next stage until you approve.
 
-Step-by-step implementation plans (Superpowers `writing-plans` format, one per stage) live in `docs/superpowers/plans/`. Written so far: Stage 0 (`2026-09-15-stage-0-scaffold-and-models.md`) and Stage 1 (`2026-09-15-stage-1-analysis-pipeline.md`); later stages get theirs when reached.
+Step-by-step implementation plans (Superpowers `writing-plans` format, one per stage) live in `docs/superpowers/plans/`: `INTERFACES.md` (the cross-stage contract every plan follows), then Stage 0 `2026-09-15-stage-0-scaffold-and-models.md`, Stage 1 `2026-09-15-stage-1-analysis-pipeline.md`, Stage 2 `2026-09-16-stage-2-auth.md`, Stage 3 `2026-09-16-stage-3-upload-and-analysis-api.md`, Stage 4 `2026-09-16-stage-4-client-dashboard.md`, Stage 5 `2026-09-16-stage-5-pdf-report.md`, Stage 6 `2026-09-16-stage-6-admin-panel.md`, Stage 7 `2026-09-16-stage-7-manual-billing.md`, Stage 8 `2026-09-16-stage-8-hardening-and-deploy.md`. Build status: Stage 0 Tasks 1–6 are implemented and reviewed on branch `stage-0-scaffold` (Task 7 frontend left uncommitted, Task 8 CI not started).
 
 ---
 
@@ -34,7 +34,7 @@ Step-by-step implementation plans (Superpowers `writing-plans` format, one per s
    - `audit_log`: records every approval and fee confirmation, so disputes can be settled.
 5. **"Recovered waste" needs a definition.** A recommended cut is not recovered money. Proposed definition: waste on previously flagged segments in the baseline period, minus waste on those same segments in the current period. The system calculates a **suggested** amount and the admin confirms or edits it before it reaches an invoice.
 6. **Money is stored as `NUMERIC(14,2)` PKR and fees are calculated with `Decimal`.** No floats go into invoices. pandas floats are fine inside the analysis, then values are rounded at the boundary.
-7. **PDFs use ReportLab, not WeasyPrint.** WeasyPrint needs GTK on Windows, which is painful to install. ReportLab is pure Python. Charts in the PDF are rendered as matplotlib PNGs.
+7. **PDFs use ReportLab, not WeasyPrint.** WeasyPrint needs GTK on Windows, which is painful to install. ReportLab is pure Python. Charts in the PDF are drawn with `reportlab.graphics` (no matplotlib dependency).
 8. **The frontend proxies `/api/*` to FastAPI through Next.js rewrites.** Auth cookies then stay first-party even when Vercel and Railway are on different domains.
 9. **Files go behind a storage interface.** Local `./storage` in dev, S3-compatible storage in prod (Supabase Storage or Cloudflare R2). Railway and Render disks are wiped on redeploy.
 
