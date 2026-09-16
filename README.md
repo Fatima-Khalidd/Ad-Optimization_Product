@@ -40,3 +40,20 @@ Open http://localhost:3000 — `/api/*` is proxied to the backend.
 cd backend && pytest
 cd frontend && npm run lint && npx tsc --noEmit && npm run build
 ```
+
+### Analysis pipeline (Stage 1)
+
+Run the analysis on any CSV that matches `backend/tests/fixtures/minimal_valid.csv`'s columns:
+
+```bash
+cd backend
+.venv/Scripts/python -m scripts.generate_sample_data        # writes tests/fixtures/sample_30d.csv
+.venv/Scripts/python -m app.pipeline.run tests/fixtures/sample_30d.csv
+.venv/Scripts/python -m app.pipeline.run my.csv --overrides '{"waste_multiplier": 2}'
+```
+
+All thresholds live in `backend/app/pipeline/config.py`.
+
+Exit codes:
+- `0`: Success
+- `2`: Validation failure (missing file, bad overrides, or invalid CSV format)

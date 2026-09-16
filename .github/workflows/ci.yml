@@ -24,7 +24,7 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: ruff check .
       - run: ruff format --check .
-      - run: pytest
+      - run: pytest --cov --cov-report=term-missing
       - name: Migration applies from empty
         run: DATABASE_URL=sqlite:///./ci.db alembic upgrade head
       - name: No model/migration drift
