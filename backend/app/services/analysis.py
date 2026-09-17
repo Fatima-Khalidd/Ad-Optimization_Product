@@ -20,6 +20,7 @@ from app.pipeline.analyzer import analyze_all_dimensions
 from app.pipeline.config import DIMENSIONS, PipelineConfig
 from app.pipeline.loader import load_csv
 from app.pipeline.optimizer import build_recommendations, headline_waste
+from app.schemas.reports import DimensionOut, RecommendationOut, ReportOut, SegmentOut
 from app.services.storage import get_storage
 from app.services.upload import get_upload
 
@@ -194,3 +195,90 @@ def _persist_analysis(session: Session, run: AnalysisRun) -> None:
     run.headline_waste = to_money(headline_waste(results))
     run.status = "done"
     session.commit()
+
+
+ZERO = Decimal("0.00")
+
+
+def get_report(session: Session, client_id: int, run_id: int) -> ReportOut:
+    """Clients only ever see finished, admin-approved runs (docs/PLAN.md section 4)."""
+    run = get_run(session, client_id, run_id)
+    if run.status != "done" or run.review_status != "approved":
+        raise NotFoundError("report not found")
+    return _build_report(session, run)
+
+
+def latest_report(session: Session, client_id: int) -> ReportOut | None:
+    run = session.scalars(
+        select(AnalysisRun)
+        .where(
+            AnalysisRun.client_id == client_id,
+            AnalysisRun.status == "done",
+            AnalysisRun.review_status == "approved",
+        )
+        .order_by(AnalysisRun.created_at.desc(), AnalysisRun.id.desc())
+    ).first()
+    return None if run is None else _build_report(session, run)
+
+
+def _build_report(session: Session, run: AnalysisRun) -> ReportOut:
+    upload = session.get(AdDataUpload, run.upload_id)
+    reports = list(
+        session.scalars(
+            select(WasteReport).where(WasteReport.run_id == run.id).order_by(WasteReport.id)
+        )
+    )
+
+    dimensions: list[DimensionOut] = []
+    recommendations: list[RecommendationOut] = []
+    for report in reports:
+        segments = session.scalars(
+            select(SegmentMetric)
+            .where(SegmentMetric.report_id == report.id)
+            .order_by(SegmentMetric.spend.desc(), SegmentMetric.id)
+        )
+        dimensions.append(
+            DimensionOut(
+                dimension=report.dimension,
+                benchmark_cpa=report.benchmark_cpa,
+                total_spend=report.total_spend,
+                total_wasted_spend=report.total_wasted_spend,
+                segments=[SegmentOut.from_row(s) for s in segments],
+            )
+        )
+        rows = session.scalars(
+            select(RecommendationRow)
+            .where(RecommendationRow.report_id == report.id)
+            .order_by(RecommendationRow.recommended_cut.desc(), RecommendationRow.id)
+        )
+        recommendations.extend(RecommendationOut.model_validate(row) for row in rows)
+
+    recommendations.sort(key=lambda rec: rec.recommended_cut, reverse=True)
+
+    # Account spend = the widest dimension's total. WasteReport has no account-level column
+    # (Task 5's schema), and dimensions can cover different subsets of the rows when a
+    # column is partially blank (docs/PLAN.md section 1 #3), so the largest per-dimension
+    # total is the best exact account figure available; it equals the true account total
+    # whenever at least one dimension is fully populated, which the loader guarantees for
+    # any row that has at least one dimension present.
+    total_spend = max((d.total_spend for d in dimensions), default=ZERO)
+    headline = run.headline_waste if run.headline_waste is not None else ZERO
+    recovery_pct = (
+        ZERO
+        if total_spend == 0
+        else (headline / total_spend * 100).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+    )
+
+    return ReportOut(
+        run_id=run.id,
+        upload_id=run.upload_id,
+        generated_at=reports[0].generated_at if reports else run.created_at,
+        date_range_start=upload.date_range_start if upload else None,
+        date_range_end=upload.date_range_end if upload else None,
+        total_spend=total_spend,
+        headline_waste=headline,
+        recovery_pct=recovery_pct,
+        dimensions=dimensions,
+        recommendations=recommendations,
+        config_snapshot=run.config_snapshot,
+    )
