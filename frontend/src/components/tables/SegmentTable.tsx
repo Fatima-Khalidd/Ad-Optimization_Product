@@ -47,7 +47,23 @@ export default function SegmentTable({ dimensions }: { dimensions: DimensionOut[
             }`}
             key={candidate.dimension}
             onClick={() => setActive(index)}
+            // role="tab" promises arrow-key navigation to assistive tech, so honour it:
+            // arrows move, Home/End jump, and a roving tabIndex keeps one stop in the Tab order.
+            onKeyDown={(event) => {
+              const last = dimensions.length - 1;
+              const next =
+                event.key === "ArrowRight" ? (index === last ? 0 : index + 1)
+                : event.key === "ArrowLeft" ? (index === 0 ? last : index - 1)
+                : event.key === "Home" ? 0
+                : event.key === "End" ? last
+                : null;
+              if (next === null) return;
+              event.preventDefault();
+              setActive(next);
+              event.currentTarget.parentElement?.querySelectorAll("button")[next]?.focus();
+            }}
             role="tab"
+            tabIndex={index === active ? 0 : -1}
             type="button"
           >
             {DIMENSION_LABELS[candidate.dimension]}

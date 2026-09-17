@@ -202,3 +202,22 @@ describe("SegmentTable", () => {
     expect(container).toBeEmptyDOMElement();
   });
 });
+
+it("moves between tabs with the arrow keys", async () => {
+  const user = userEvent.setup();
+  render(<SegmentTable dimensions={dimensions} />);
+
+  const tabs = screen.getAllByRole("tab");
+  expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+  expect(tabs[1]).toHaveAttribute("tabindex", "-1");
+
+  tabs[0].focus();
+  await user.keyboard("{ArrowRight}");
+  expect(screen.getAllByRole("tab")[1]).toHaveAttribute("aria-selected", "true");
+
+  await user.keyboard("{End}");
+  expect(screen.getAllByRole("tab")[2]).toHaveAttribute("aria-selected", "true");
+
+  await user.keyboard("{ArrowRight}");
+  expect(screen.getAllByRole("tab")[0]).toHaveAttribute("aria-selected", "true");
+});
