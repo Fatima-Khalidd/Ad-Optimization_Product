@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./dev.db"
     secret_key: str = _DEV_SECRET
 
+    # --- file storage (docs/PLAN.md section 1 #9) ---
+    storage_backend: str = "local"  # "supabase" arrives in Stage 8
+    storage_root: str = "./storage"
+    max_upload_mb: int = 20
+
     # Auth (docs/PLAN.md section 5 "Auth details").
     access_token_minutes: int = 15
     refresh_token_days: int = 7
