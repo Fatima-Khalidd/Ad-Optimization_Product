@@ -15,7 +15,7 @@ from app.pipeline.config import PipelineConfig
 from app.pipeline.data_generator import write_sample_csv
 from app.pipeline.loader import load_csv
 from app.pipeline.optimizer import headline_waste
-from app.services.analysis import create_run, execute_run, get_run, to_money
+from app.services.analysis import create_run, execute_run, get_run, to_money, to_money_or_none
 from app.services.storage import get_storage
 from app.services.upload import create_upload
 
@@ -225,7 +225,7 @@ def test_execute_run_persists_every_dimension_segment_and_recommendation(
         assert report.upload_id == upload.id
         assert report.total_spend == to_money(dim.total_spend)
         assert report.total_wasted_spend == to_money(dim.total_wasted_spend)
-        assert report.benchmark_cpa == to_money(dim.benchmark_cpa)
+        assert report.benchmark_cpa == to_money_or_none(dim.benchmark_cpa)
         segments = session.scalars(
             select(SegmentMetric).where(SegmentMetric.report_id == report.id)
         ).all()
@@ -297,7 +297,10 @@ def test_execute_run_marks_the_run_failed_when_the_file_is_gone(
     session.expire_all()
     run = session.get(AnalysisRun, run.id)
     assert run.status == "failed"
-    assert upload.file_sha256 in run.error_message
+    # The message is client-facing: no storage key (tenant id / content hash) may leak
+    # into it. The full detail (including the key) goes to logger.exception instead.
+    assert upload.file_sha256 not in run.error_message
+    assert upload.file_path not in run.error_message
     assert session.scalars(select(WasteReport).where(WasteReport.run_id == run.id)).all() == []
 
 
@@ -395,3 +398,82 @@ def test_execute_run_on_the_committed_sample_30d_fixture_matches_hand_checked_nu
     ).all()
     assert recs
     assert all(rec.reason for rec in recs)
+
+
+def test_execute_run_does_not_touch_a_run_already_done(
+    session: Session, client_row: Client, tmp_path: Path
+):
+    """The atomic claim (`UPDATE ... WHERE status = 'queued'`) means a run already in a
+    terminal state is left completely alone on a re-dispatch: no new report rows, status
+    unchanged."""
+    upload = _upload_sample(session, client_row, tmp_path)
+    run = create_run(session, client_row, upload.id)
+    execute_run(run.id)
+
+    session.expire_all()
+    run = session.get(AnalysisRun, run.id)
+    assert run.status == "done"
+    before = session.scalars(select(WasteReport).where(WasteReport.run_id == run.id)).all()
+    assert len(before) == 3
+
+    execute_run(run.id)  # re-dispatch of an already-done run
+
+    session.expire_all()
+    run = session.get(AnalysisRun, run.id)
+    assert run.status == "done"
+    after = session.scalars(select(WasteReport).where(WasteReport.run_id == run.id)).all()
+    assert len(after) == 3
+    assert [r.id for r in after] == [r.id for r in before]
+
+
+def test_execute_run_writes_a_zero_report_for_a_dimension_with_no_data(
+    session: Session, client_row: Client
+):
+    """PLAN §1 #3: every dimension in DIMENSIONS gets a WasteReport row even when the
+    upload has no data for it - here every row's time_slot is blank."""
+    rows = [
+        f"2026-08-{day:02d},C1,facebook_feed,25-34,male,mobile,,6000.00,10000,250,5,12500\n"
+        for day in range(1, 6)
+    ]
+    csv_bytes = HEADER + b"".join(row.encode() for row in rows)
+    upload = create_upload(session, client_row, "blank_time_slot.csv", csv_bytes)
+    run = create_run(session, client_row, upload.id)
+
+    execute_run(run.id)
+
+    session.expire_all()
+    run = session.get(AnalysisRun, run.id)
+    assert run.status == "done"
+
+    reports = session.scalars(
+        select(WasteReport).where(WasteReport.run_id == run.id).order_by(WasteReport.id)
+    ).all()
+    assert len(reports) == 3
+
+    blank = next(r for r in reports if r.dimension == "time_slot")
+    assert blank.total_spend == Decimal("0.00")
+    assert blank.total_wasted_spend == Decimal("0.00")
+    assert blank.benchmark_cpa is None
+    segments = session.scalars(
+        select(SegmentMetric).where(SegmentMetric.report_id == blank.id)
+    ).all()
+    assert segments == []
+
+
+def test_execute_run_truncates_a_very_long_error_message(
+    session: Session, client_row: Client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    upload = _upload_sample(session, client_row, tmp_path)
+    run = create_run(session, client_row, upload.id)
+
+    def _boom(df, config):
+        raise RuntimeError("x" * 5000)
+
+    monkeypatch.setattr("app.services.analysis.analyze_all_dimensions", _boom)
+
+    execute_run(run.id)
+
+    session.expire_all()
+    run = session.get(AnalysisRun, run.id)
+    assert run.status == "failed"
+    assert len(run.error_message) <= 1000

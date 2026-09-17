@@ -5,10 +5,11 @@ nowhere else (docs/PLAN.md section 1 #6).
 """
 
 import io
+import logging
 import math
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.core.db import session_scope
@@ -21,6 +22,8 @@ from app.pipeline.loader import load_csv
 from app.pipeline.optimizer import build_recommendations, headline_waste
 from app.services.storage import get_storage
 from app.services.upload import get_upload
+
+logger = logging.getLogger(__name__)
 
 TWO_PLACES = Decimal("0.01")
 
@@ -86,28 +89,46 @@ def get_run(session: Session, client_id: int, run_id: int) -> AnalysisRun:
     return run
 
 
+def _error_message(exc: Exception) -> str:
+    """A short, client-facing reason - never a storage key, tenant path, or file hash.
+
+    The full detail (including any key/path) goes to `logger.exception` instead; this
+    string is what ends up in a `Text` column an admin (and eventually a client) may see.
+    """
+    if isinstance(exc, FileNotFoundError):
+        return "the uploaded file could not be read"
+    return f"{type(exc).__name__}: {exc}"[:1000]
+
+
 def execute_run(run_id: int) -> None:
     """FastAPI BackgroundTask. Runs after the response, so it opens its own session.
 
-    Idempotency: only a `queued` run is executed. A run that is already `running`,
-    `done` or `failed` is left untouched - re-dispatching the same run_id (a retried
-    background task, a double-click on "analyse") is a silent no-op rather than a
-    duplicate set of WasteReport/SegmentMetric/Recommendation rows.
+    Idempotency: the claim below is a single conditional UPDATE
+    (`WHERE id = :run_id AND status = 'queued'`), so a double dispatch of the same
+    run_id can never have both calls proceed - whichever commits first flips the row to
+    `running` and the loser's `rowcount` is 0. A run that is already `running`, `done` or
+    `failed` (or an unknown id) is left untouched: silent no-op rather than a duplicate
+    set of WasteReport/SegmentMetric/Recommendation rows.
     """
     with session_scope() as session:
-        run = session.get(AnalysisRun, run_id)
-        if run is None or run.status != "queued":
-            return
-        run.status = "running"
+        claim = session.execute(
+            update(AnalysisRun)
+            .where(AnalysisRun.id == run_id, AnalysisRun.status == "queued")
+            .values(status="running")
+        )
         session.commit()
+        if claim.rowcount == 0:
+            return  # unknown id, already running, or already done/failed
+        run = session.get(AnalysisRun, run_id)
         try:
             _persist_analysis(session, run)
         except Exception as exc:  # noqa: BLE001 - every failure must land on the run row
+            logger.exception("execute_run failed for run_id=%s", run_id)
             session.rollback()
             failed = session.get(AnalysisRun, run_id)
             if failed is not None:
                 failed.status = "failed"
-                failed.error_message = f"{type(exc).__name__}: {exc}"[:1000]
+                failed.error_message = _error_message(exc)
                 session.commit()
 
 
