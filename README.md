@@ -64,6 +64,23 @@ IP address (429 after that). Failures are deliberately indistinguishable: a wron
 unknown email and a deactivated account all return `401 {"detail": "invalid credentials"}`; a
 duplicate signup returns `409 {"detail": "email already registered"}`.
 
+### Uploads & analysis (Stage 3)
+
+All routes need the client session cookies from `POST /api/auth/login`.
+
+```bash
+curl -b cookies.txt -F "file=@august.csv" http://localhost:8000/api/uploads   # 201, or 422 + row errors
+curl -b cookies.txt -X POST http://localhost:8000/api/analyze/1               # 202 + run id
+curl -b cookies.txt http://localhost:8000/api/runs/1                          # queued|running|done|failed
+curl -b cookies.txt http://localhost:8000/api/reports/1                       # 404 until an admin approves
+curl -O http://localhost:8000/api/uploads/template.csv                        # blank template
+```
+
+Uploaded CSVs are written through the storage interface (`STORAGE_ROOT`, default
+`./storage`). Files over `MAX_UPLOAD_MB` are rejected with 413, and re-uploading identical
+bytes with 409. A report becomes visible only once its run is `done` **and** an admin has
+set `review_status = approved` (Stage 6).
+
 ### Tests
 
 ```bash
