@@ -4,6 +4,7 @@ Knows nothing about routes or the database: everything here takes plain values s
 unit-tested without a client or a session.
 """
 
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -13,8 +14,11 @@ import jwt
 from fastapi import Response
 from jwt.exceptions import InvalidTokenError
 from pwdlib import PasswordHash
+from pwdlib.hashers.argon2 import Argon2Hasher
 
 from app.core.settings import get_settings
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "ACCESS_COOKIE",
@@ -35,18 +39,27 @@ ALGORITHM = "HS256"
 ACCESS_COOKIE = "access_token"
 REFRESH_COOKIE = "refresh_token"
 
-# Argon2id with the library's recommended parameters (docs/PLAN.md section 5).
-_hasher = PasswordHash.recommended()
+
+# Argon2id with the library's recommended parameters (docs/PLAN.md section 5). In the test
+# environment the suite mints dozens of hashes per run, so a deliberately weak profile is used
+# instead - real strength is irrelevant to what these tests check, and the recommended profile
+# is exercised on its own in test_security.py. Chosen lazily (not at import time) so that
+# settings monkeypatched in tests are honoured rather than frozen at import.
+def _hasher() -> PasswordHash:
+    if get_settings().env == "test":
+        return PasswordHash((Argon2Hasher(time_cost=1, memory_cost=8, parallelism=1),))
+    return PasswordHash.recommended()
 
 
 def hash_password(plain: str) -> str:
-    return _hasher.hash(plain)
+    return _hasher().hash(plain)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
     try:
-        return _hasher.verify(plain, hashed)
+        return _hasher().verify(plain, hashed)
     except Exception:  # a malformed or empty stored hash is a failed login, not a 500
+        logger.warning("password verification raised; treating as a failed login")
         return False
 
 

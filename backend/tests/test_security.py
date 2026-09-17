@@ -24,6 +24,25 @@ from app.core.security import (
 FIXED_NOW = datetime.now(UTC).replace(microsecond=0)
 
 
+def test_prod_env_uses_the_recommended_argon2_profile(monkeypatch):
+    """Only the test env gets the deliberately weak profile; prod must still get
+    PasswordHash.recommended() - asserted on the hasher's parameters, not on timing."""
+    import argon2
+
+    from app.core.security import _hasher
+
+    monkeypatch.setenv("ENV", "prod")
+    monkeypatch.setenv("SECRET_KEY", "a-real-production-secret-32chars+")
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:pw@host/db")
+
+    hasher = _hasher()
+    argon2_hasher = hasher.hashers[0]._hasher
+
+    assert argon2_hasher.time_cost == argon2.DEFAULT_TIME_COST
+    assert argon2_hasher.memory_cost == argon2.DEFAULT_MEMORY_COST
+    assert argon2_hasher.parallelism == argon2.DEFAULT_PARALLELISM
+
+
 def test_hash_round_trip():
     hashed = hash_password("correct-horse-battery")
 
@@ -45,6 +64,17 @@ def test_each_hash_gets_its_own_salt():
 
 def test_verify_against_garbage_is_false_not_an_exception():
     assert verify_password("anything", "not-a-hash") is False
+
+
+def test_verify_against_garbage_logs_a_warning(caplog):
+    with caplog.at_level("WARNING", logger="app.core.security"):
+        verify_password("anything", "not-a-hash")
+
+    assert any(record.levelname == "WARNING" for record in caplog.records)
+    # No secret material in the log line.
+    for record in caplog.records:
+        assert "anything" not in record.getMessage()
+        assert "not-a-hash" not in record.getMessage()
 
 
 def test_access_token_decodes_with_role_and_type():

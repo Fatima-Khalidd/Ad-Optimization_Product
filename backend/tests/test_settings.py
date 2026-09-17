@@ -53,13 +53,42 @@ def test_prod_rejects_sqlite_database_url(monkeypatch):
 
 def test_prod_accepts_real_secret_and_postgres_url(monkeypatch):
     monkeypatch.setenv("ENV", "prod")
-    monkeypatch.setenv("SECRET_KEY", "a-real-production-secret")
+    monkeypatch.setenv("SECRET_KEY", "a-real-production-secret-32chars+")
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:pw@host/db")
 
     settings = Settings(_env_file=None)
 
     assert settings.env == "prod"
     assert settings.database_url == "postgresql+psycopg://user:pw@host/db"
+
+
+def test_prod_rejects_secret_key_shorter_than_32_chars(monkeypatch):
+    monkeypatch.setenv("ENV", "prod")
+    monkeypatch.setenv("SECRET_KEY", "a" * 31)
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:pw@host/db")
+
+    with pytest.raises(ValidationError, match="32"):
+        Settings(_env_file=None)
+
+
+def test_prod_accepts_secret_key_of_exactly_32_chars(monkeypatch):
+    monkeypatch.setenv("ENV", "prod")
+    monkeypatch.setenv("SECRET_KEY", "a" * 32)
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:pw@host/db")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.secret_key == "a" * 32
+
+
+def test_dev_allows_a_short_secret_key(monkeypatch):
+    monkeypatch.setenv("ENV", "dev")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./x.db")
+    monkeypatch.setenv("SECRET_KEY", "s")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.secret_key == "s"
 
 
 def test_env_file_points_at_backend_dotenv():
@@ -87,7 +116,7 @@ def test_cookie_secure_is_forced_on_in_prod(monkeypatch):
     # cookie_secure-forcing behavior under test.
     monkeypatch.setenv("ENV", "prod")
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:pw@host/db")
-    monkeypatch.setenv("SECRET_KEY", "a-real-production-secret")
+    monkeypatch.setenv("SECRET_KEY", "a-real-production-secret-32chars+")
     monkeypatch.setenv("COOKIE_SECURE", "false")  # must not be able to weaken prod
 
     assert Settings(_env_file=None).cookie_secure is True

@@ -7,6 +7,7 @@ service call that takes `db` as its own session argument.
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
@@ -117,6 +118,19 @@ def test_authenticate_runs_verify_password_for_an_unknown_email(db: Session, mon
 
     assert authenticate(db, "ghost@example.com", "whatever") is None
     assert len(calls) == 1
+
+
+def test_signup_reraises_a_non_email_integrity_error_unchanged(db: Session, monkeypatch):
+    """A constraint failure unrelated to email uniqueness (e.g. on `clients`) must propagate
+    as itself, not get mistranslated into a misleading EmailTakenError / 409 (F5)."""
+
+    def failing_commit():
+        raise IntegrityError("INSERT INTO clients ...", {}, Exception("some other constraint"))
+
+    monkeypatch.setattr(db, "commit", failing_commit)
+
+    with pytest.raises(IntegrityError):
+        signup_client(db, "fresh@example.com", "longenough", "Fresh Co")
 
 
 def test_create_admin_makes_an_admin_with_no_client_row(db: Session):

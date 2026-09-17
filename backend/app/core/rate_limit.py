@@ -12,7 +12,9 @@ from starlette.responses import JSONResponse
 
 LOGIN_RATE_LIMIT = "5/minute"
 
-limiter = Limiter(key_func=get_remote_address)
+# moving-window (not the slowapi default of fixed-window) so a login burst spanning a
+# minute boundary can't reset the counter mid-test and let a 6th attempt through.
+limiter = Limiter(key_func=get_remote_address, strategy="moving-window")
 
 
 def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:

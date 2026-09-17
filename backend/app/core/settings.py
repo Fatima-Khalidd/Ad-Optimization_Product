@@ -32,6 +32,8 @@ class Settings(BaseSettings):
             self.secret_key == _DEV_SECRET or self.database_url.startswith("sqlite")
         ):
             raise ValueError("prod requires a non-default SECRET_KEY and a non-sqlite DATABASE_URL")
+        if self.env == "prod" and len(self.secret_key) < 32:
+            raise ValueError("prod requires a SECRET_KEY of at least 32 characters")
         return self
 
     @model_validator(mode="after")

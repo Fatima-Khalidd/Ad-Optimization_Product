@@ -65,9 +65,15 @@ def signup_client(session: Session, email: str, password: str, business_name: st
     )
     try:
         session.commit()
-    except IntegrityError as exc:  # belt-and-braces: same guarantee as _create_user's flush
+    except IntegrityError as exc:
         session.rollback()
-        raise EmailTakenError(_normalize(email)) from exc
+        # Only translate to EmailTakenError when the email row actually landed - i.e. the
+        # failure really was the users.email race this guards against (docs/PLAN.md
+        # tenant-isolation notes). Any other constraint failure (e.g. on `clients`) must
+        # surface as itself, not a misleading 409 "email already registered".
+        if _by_email(session, email) is not None:
+            raise EmailTakenError(_normalize(email)) from exc
+        raise
     session.refresh(user)
     return user
 
