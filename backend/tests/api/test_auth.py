@@ -173,6 +173,20 @@ def test_refresh_refuses_an_expired_refresh_token(api, db):
     assert api.post("/api/auth/refresh").status_code == 401
 
 
+def test_refresh_for_a_deactivated_user_returns_401(api, db):
+    client_row = make_client(db, "owner@example.com")
+    user = user_for(db, client_row)
+    api.post("/api/auth/login", json={"email": "owner@example.com", "password": TEST_PASSWORD})
+
+    user.is_active = False
+    db.commit()
+
+    response = api.post("/api/auth/refresh")
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "invalid credentials"}
+
+
 def test_logout_clears_both_cookies_and_me_then_fails(api, db):
     make_client(db, "owner@example.com")
     api.post("/api/auth/login", json={"email": "owner@example.com", "password": TEST_PASSWORD})
