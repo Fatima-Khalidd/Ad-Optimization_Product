@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from app.services.pdf import build_report_pdf, format_pct, format_pkr
 from tests.pdf_utils import pdf_page_count, pdf_page_texts, pdf_text
 
@@ -173,3 +175,52 @@ def test_methodology_survives_a_config_snapshot_missing_keys(make_report):
 
     assert "benchmark_mode = best" in text
     assert "waste_multiplier = not recorded" in text
+
+
+def test_format_pkr_rounds_half_up_like_the_dashboard_not_bankers_rounding():
+    # Decimal's default context is ROUND_HALF_EVEN; the dashboard's Math.round is half-away-
+    # from-zero. These exact-half cases are where the two disagree, so they pin the behaviour.
+    assert format_pkr(Decimal("84000.50")) == "Rs. 84,001"
+    assert format_pkr(Decimal("0.50")) == "Rs. 1"
+
+
+def test_format_pct_rounds_half_up_like_the_dashboard_not_bankers_rounding():
+    assert format_pct(Decimal("16.25")) == "16.3%"
+    assert format_pct(Decimal("16.35")) == "16.4%"
+
+
+def test_format_pkr_and_pct_never_print_a_negative_zero():
+    assert format_pkr(Decimal("-0.4")) == "Rs. 0"
+    assert format_pct(Decimal("-0.04")) == "0.0%"
+
+
+def test_format_pkr_and_pct_still_dash_on_none():
+    assert format_pkr(None) == "—"
+    assert format_pct(None) == "—"
+
+
+def test_headline_waste_on_an_exact_half_rupee_renders_rounded_up(make_report):
+    report = make_report(headline_waste=Decimal("210794.50"))
+
+    text = pdf_text(build_report_pdf(report, BUSINESS))
+
+    assert "Rs. 210,795" in text
+
+
+def test_wasted_column_uses_wasted_spend_not_is_flagged(make_report, make_dimension, make_segment):
+    # A segment marked flagged but with zero wasted_spend must show "—" in the Wasted column,
+    # matching the dashboard's `Number(wasted_spend) > 0` predicate (SegmentTable.tsx) rather
+    # than the PDF's own is_flagged check. The "Wasteful" tag still tracks is_flagged — only
+    # the Wasted amount cell's predicate changes.
+    odd = make_segment(
+        "odd_one", 5000.0, 10, clicks=500, cpa=500.0, is_flagged=True, wasted_spend=0.0
+    )
+    report = make_report(dimensions=[make_dimension("placement", [odd])])
+
+    text = pdf_text(build_report_pdf(report, BUSINESS))
+
+    assert "Odd One" in text
+    assert "Rs. 5,000" in text  # spend still prints
+    # The row's own Wasted cell must read "Wasteful —", not "Wasteful Rs. 0" — the dimension
+    # header line separately (and legitimately) shows "wasted Rs. 0" as the dimension's total.
+    assert "Wasteful —" in text

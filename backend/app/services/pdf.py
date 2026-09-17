@@ -12,7 +12,7 @@ Rules that must not drift (docs/PLAN.md §6 Stage 5, INTERFACES.md Stage 5):
 
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from io import BytesIO
 from xml.sax.saxutils import escape
 
@@ -56,22 +56,37 @@ DIMENSION_TITLES = {
 }
 
 
+def _to_decimal(value: Decimal | float) -> Decimal:
+    """Coerce a float via its repr, never via Decimal(float) — that would import the float's
+    own binary-rounding error instead of the intended decimal value."""
+    return value if isinstance(value, Decimal) else Decimal(str(value))
+
+
 def format_pkr(amount: Decimal | float | None) -> str:
     """Rupees exactly as the dashboard writes them: "Rs. 84,000".
 
-    Formats the Decimal (or float) directly with the standard format mini-language, so a
-    Decimal amount is never routed through a float and re-rounded on the way.
+    The dashboard rounds with JS's Math.round (half away from zero); Decimal's own formatting
+    defaults to ROUND_HALF_EVEN (banker's rounding), which disagrees on exact halves such as
+    84000.50. Quantizing to whole rupees with ROUND_HALF_UP first keeps the two surfaces in
+    lockstep, and a value that rounds to exactly zero never prints as "-0".
     """
     if amount is None:
         return DASH
-    return f"Rs. {amount:,.0f}"
+    whole = _to_decimal(amount).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    if whole == 0:
+        whole = abs(whole)
+    return f"Rs. {whole:,.0f}"
 
 
 def format_pct(value: Decimal | float | None) -> str:
-    """Percentages exactly as the dashboard writes them: "52.5%"."""
+    """Percentages exactly as the dashboard writes them: "52.5%" — same half-up rounding and
+    negative-zero guard as format_pkr, one decimal place instead of zero."""
     if value is None:
         return DASH
-    return f"{value:.1f}%"
+    tenth = _to_decimal(value).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+    if tenth == 0:
+        tenth = abs(tenth)
+    return f"{tenth:.1f}%"
 
 
 def _label(value: str) -> str:
@@ -257,7 +272,10 @@ def _segment_table(dimension: DimensionOut, st: dict[str, ParagraphStyle]) -> tu
                 f"{seg.conversions:,.0f}",
                 format_pkr(seg.cpa),
                 "Wasteful" if seg.is_flagged else "",
-                format_pkr(seg.wasted_spend) if seg.is_flagged else DASH,
+                # Matches the dashboard's own predicate (frontend/.../SegmentTable.tsx:
+                # `Number(segment.wasted_spend) > 0 ? formatPKR(...) : "—"`), not is_flagged —
+                # a segment can be flagged with no wasted_spend to show.
+                format_pkr(seg.wasted_spend) if seg.wasted_spend and seg.wasted_spend > 0 else DASH,
             ]
         )
         if seg.is_flagged:
