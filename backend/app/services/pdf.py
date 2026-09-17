@@ -317,6 +317,87 @@ def _dimension_section(
     return flow
 
 
+METHODOLOGY_KEYS: tuple[str, ...] = (
+    "benchmark_mode",
+    "waste_multiplier",
+    "min_spend",
+    "min_clicks",
+    "min_spend_zero_conv",
+    "max_cut_pct",
+)
+
+
+def _recommendations(report: ReportOut, st: dict[str, ParagraphStyle]) -> list:
+    flow: list = [Paragraph("What to do next", st["h2"]), Spacer(1, 3 * mm)]
+    if not report.recommendations:
+        flow.append(
+            Paragraph(
+                "No wasteful segments found in this period. Every segment came in at or near "
+                "the benchmark cost per conversion, so there is nothing to cut.",
+                st["body"],
+            )
+        )
+        flow.append(Spacer(1, 7 * mm))
+        return flow
+
+    for number, rec in enumerate(report.recommendations, start=1):
+        heading = (
+            f"{number}. {_label(rec.segment_name)} ({_dimension_title(rec.dimension).lower()})"
+        )
+        block = [
+            Paragraph(escape(heading), st["h3"]),
+            Paragraph(escape(rec.reason), st["body"]),
+            Paragraph(
+                f"Current spend {format_pkr(rec.current_spend)} | "
+                f"recommended cut {format_pkr(rec.recommended_cut)}",
+                st["meta"],
+            ),
+            Spacer(1, 4 * mm),
+        ]
+        flow.append(KeepTogether(block))
+    return flow
+
+
+def _config_value(config: dict, key: str) -> str:
+    if key not in config or config[key] is None:
+        return "not recorded"
+    value = config[key]
+    number = None if isinstance(value, bool) else _config_number(config, key)
+    if number is None:
+        return str(value)
+    # Whole thresholds read better with separators (1,000); ratios keep their decimals (1.5).
+    return f"{number:,.0f}" if number == int(number) else f"{number:g}"
+
+
+def _methodology(report: ReportOut, st: dict[str, ParagraphStyle]) -> list:
+    config = report.config_snapshot or {}
+    settings = " | ".join(f"{key} = {_config_value(config, key)}" for key in METHODOLOGY_KEYS)
+    return [
+        Paragraph("How these numbers were produced", st["h2"]),
+        Spacer(1, 2 * mm),
+        Paragraph(
+            "A segment is judged only when it clears the significance thresholds. It is flagged "
+            "when its cost per conversion exceeds waste_multiplier times the benchmark CPA, or "
+            "when it has no conversions at all on at least min_spend_zero_conv of spend. Wasted "
+            "spend is the segment's spend minus its conversions priced at the benchmark CPA, "
+            "floored at zero; a segment with no conversions counts its whole spend.",
+            st["footnote"],
+        ),
+        Spacer(1, 2 * mm),
+        Paragraph(
+            "Estimated wasted spend on the cover is the largest single dimension, not the sum "
+            "across dimensions: the same rupee appears in the placement, age group and "
+            "time-of-day breakdowns at once, so adding them would count it three times.",
+            st["footnote"],
+        ),
+        Spacer(1, 2 * mm),
+        Paragraph(
+            f"Settings saved with this run (analysis run {report.run_id}): {escape(settings)}",
+            st["footnote"],
+        ),
+    ]
+
+
 def _date_line(report: ReportOut) -> str:
     generated = f"generated {report.generated_at:%d %b %Y %H:%M} UTC"
     if report.date_range_start is None or report.date_range_end is None:
@@ -372,5 +453,7 @@ def build_report_pdf(report: ReportOut, business_name: str) -> bytes:
     flow: list = _cover(report, business_name, st)
     for dimension in report.dimensions:
         flow.extend(_dimension_section(dimension, report.config_snapshot or {}, st))
+    flow.extend(_recommendations(report, st))
+    flow.extend(_methodology(report, st))
     doc.build(flow, onFirstPage=_page_furniture, onLaterPages=_page_furniture)
     return buffer.getvalue()

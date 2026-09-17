@@ -114,3 +114,62 @@ def test_sixty_segments_still_render_and_repeat_the_table_header(
     assert pdf_page_count(data) >= 2  # 60 rows cannot fit one page
     assert sum("Segment Spend Conversions" in p for p in pages) >= 2  # repeatRows=1 header
     assert "Segment 00" in text and "Segment 59" in text
+
+
+def test_recommendations_are_numbered_and_carry_their_reason(sample_report):
+    text = pdf_text(build_report_pdf(sample_report, BUSINESS))
+
+    assert "What to do next" in text
+    assert "1. Audience Network" in text
+    assert "2. 55-64" in text
+    assert "3. Reels" in text
+    # The reason sentence, verbatim. It is asserted in two halves so that the em dash and the
+    # multiplication sign in the middle cannot turn an extraction quirk into a red test.
+    assert "Audience Network spent Rs. 84,000 at Rs. 2,100 per conversion" in text
+    assert "your placement average of Rs. 800. Cut Rs. 50,400 (60%)." in text
+    assert "Reels spent Rs. 1,000 with no conversions at all. Cut Rs. 600 (60%)." in text
+    assert "recommended cut Rs. 50,400" in text
+
+
+def test_report_with_nothing_flagged_renders_an_empty_state(
+    make_report, make_dimension, make_segment
+):
+    clean = make_dimension(
+        "placement",
+        [make_segment("facebook_feed", 15000.0, 30, clicks=4000)],
+        total_wasted_spend=0.0,
+    )
+    report = make_report(
+        dimensions=[clean], recommendations=[], headline_waste=0.0, recovery_pct=0.0
+    )
+
+    data = build_report_pdf(report, BUSINESS)
+    text = pdf_text(data)
+
+    assert data[:4] == b"%PDF"
+    assert "No wasteful segments found" in text
+    assert "Rs. 0" in text
+    assert "0.0%" in text
+
+
+def test_methodology_footnote_lists_the_config_that_produced_the_numbers(sample_report):
+    text = pdf_text(build_report_pdf(sample_report, BUSINESS))
+
+    assert "How these numbers were produced" in text
+    assert "benchmark_mode = account_avg" in text
+    assert "waste_multiplier = 1.5" in text
+    assert "min_spend = 1,000" in text
+    assert "min_clicks = 100" in text
+    assert "min_spend_zero_conv = 1,000" in text
+    assert "max_cut_pct = 0.6" in text
+    assert "largest single dimension" in text
+    assert "not the sum" in text
+
+
+def test_methodology_survives_a_config_snapshot_missing_keys(make_report):
+    report = make_report(config_snapshot={"benchmark_mode": "best"})
+
+    text = pdf_text(build_report_pdf(report, BUSINESS))
+
+    assert "benchmark_mode = best" in text
+    assert "waste_multiplier = not recorded" in text
