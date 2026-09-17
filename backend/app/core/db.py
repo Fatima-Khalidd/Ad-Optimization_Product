@@ -70,6 +70,13 @@ def session_scope() -> Iterator[Session]:
 
 
 def get_session() -> Iterator[Session]:
-    """FastAPI dependency: one session per request, always closed."""
-    with session_scope() as session:
+    """FastAPI dependency: one session per request, always closed.
+
+    Does NOT commit. Callers (routers/services) must commit their own writes — an
+    uncommitted change is silently discarded when the request ends, it is not an error.
+    """
+    get_engine()
+    if _session_factory is None:
+        raise RuntimeError("engine not configured")
+    with _session_factory() as session:
         yield session

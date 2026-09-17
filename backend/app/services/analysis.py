@@ -18,22 +18,28 @@ from app.services.upload import get_upload
 TWO_PLACES = Decimal("0.01")
 
 
-def to_money(value: float) -> Decimal:
-    """pandas float -> PKR NUMERIC(14,2).
+def to_money(value: float | Decimal) -> Decimal:
+    """pandas float (or an already-Decimal amount) -> PKR NUMERIC(14,2).
 
-    Goes through `Decimal(str(value))` (never `Decimal(float)`, which would drag in the
-    float's binary artefacts) and quantizes with ROUND_HALF_UP, not Python's banker's-
-    rounding `round()`. Non-finite input (`inf`/`nan`) has no sane money value, so it
-    raises rather than silently producing garbage - the same stance Stage 1's
+    A `Decimal` argument is quantized directly - no float round-trip, so a value a float
+    cannot represent exactly (e.g. Decimal("123456789012.345")) keeps its exact digits.
+    Anything else goes through `Decimal(str(value))` (never `Decimal(float)`, which would
+    drag in the float's binary artefacts), then both paths quantize with ROUND_HALF_UP, not
+    Python's banker's-rounding `round()`. Non-finite input (`inf`/`nan`) has no sane money
+    value, so it raises rather than silently producing garbage - the same stance Stage 1's
     `calculate_fee` takes.
     """
+    if isinstance(value, Decimal):
+        if not value.is_finite():
+            raise ValueError(f"cannot convert non-finite value {value!r} to money")
+        return value.quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
     value = float(value)
     if not math.isfinite(value):
         raise ValueError(f"cannot convert non-finite value {value!r} to money")
     return Decimal(str(value)).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
 
 
-def to_money_or_none(value: float | None) -> Decimal | None:
+def to_money_or_none(value: float | Decimal | None) -> Decimal | None:
     return None if value is None else to_money(value)
 
 

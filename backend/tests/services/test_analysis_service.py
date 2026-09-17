@@ -123,6 +123,19 @@ def test_to_money_hand_checked_values():
     assert to_money(2.675) == Decimal("2.68")
 
 
+def test_to_money_short_circuits_an_already_decimal_value():
+    # Decimal("2.675") is exact; if this round-tripped through float it would become
+    # 2.67499999999999982236431605997495353221893310546875 and round DOWN to 2.67.
+    assert to_money(Decimal("2.675")) == Decimal("2.68")
+    # A value no float can represent exactly - proves there is no float round-trip.
+    assert to_money(Decimal("123456789012.345")) == Decimal("123456789012.35")
+
+
+def test_to_money_rejects_a_non_finite_decimal():
+    with pytest.raises(ValueError):
+        to_money(Decimal("NaN"))
+
+
 def test_create_run_invalid_override_propagates_value_error(session: Session, client_row: Client):
     upload = create_upload(session, client_row, "aug.csv", GOOD)
     client_row.config_overrides = {"waste_multiplier": "not-a-number"}
