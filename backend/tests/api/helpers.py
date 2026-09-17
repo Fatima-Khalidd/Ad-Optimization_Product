@@ -6,13 +6,15 @@ Import them as `from tests.api.helpers import make_client, login_as` - that reso
 pytest is always run as `.venv/Scripts/python -m pytest` from `backend/`.
 """
 
+from datetime import UTC, date, datetime
 from decimal import Decimal
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
-from app.models import Client, User
+from app.models import AdDataUpload, AnalysisRun, Client, SegmentMetric, User, WasteReport
 
 TEST_PASSWORD = "correct horse battery staple"
 
@@ -78,3 +80,101 @@ def make_admin(db: Session, email: str = "admin@example.com", *, is_active: bool
     db.commit()
     db.refresh(user)
     return user
+
+
+CONFIG_SNAPSHOT = {
+    "benchmark_mode": "account_avg",
+    "waste_multiplier": 1.5,
+    "min_spend": 1000.0,
+    "min_clicks": 100,
+    "min_spend_zero_conv": 1000.0,
+    "max_cut_pct": 0.6,
+}
+
+
+def make_upload(db: Session, client: Client, *, status: str = "validated") -> AdDataUpload:
+    """A committed AdDataUpload row for `client`. No bytes are written to storage."""
+    upload = AdDataUpload(
+        client_id=client.id,
+        original_filename="august.csv",
+        file_path=f"uploads/{client.id}/{uuid4().hex}.csv",
+        file_sha256=uuid4().hex,
+        row_count=900,
+        date_range_start=date(2026, 8, 1),
+        date_range_end=date(2026, 8, 31),
+        status=status,
+        validation_report={"errors": [], "warnings": []},
+    )
+    db.add(upload)
+    db.commit()
+    db.refresh(upload)
+    return upload
+
+
+def make_run(
+    db: Session,
+    client: Client,
+    upload: AdDataUpload | None = None,
+    *,
+    status: str = "done",
+    review_status: str = "pending",
+    created_at: datetime | None = None,
+    headline_waste: Decimal | None = Decimal("52000.00"),
+    segments: tuple[tuple[str, str, str, bool], ...] = (),
+) -> AnalysisRun:
+    """A committed AnalysisRun for `client`, optionally with its WasteReport rows.
+
+    `segments` entries are (dimension, segment_value, wasted_spend, is_flagged); one
+    WasteReport is created per distinct dimension and its total_wasted_spend is the sum of
+    that dimension's segments. With the default empty tuple the run carries no reports,
+    which is all a status-polling or review-queue test needs.
+    """
+    if upload is None:
+        upload = make_upload(db, client)
+    run = AnalysisRun(
+        client_id=client.id,
+        upload_id=upload.id,
+        config_snapshot=dict(CONFIG_SNAPSHOT),
+        status=status,
+        review_status=review_status,
+        headline_waste=headline_waste,
+        created_at=created_at or datetime(2026, 9, 1, 12, 0, tzinfo=UTC),
+    )
+    db.add(run)
+    db.flush()
+
+    reports: dict[str, WasteReport] = {}
+    for dimension, segment_value, wasted, flagged in segments:
+        if dimension not in reports:
+            report = WasteReport(
+                run_id=run.id,
+                client_id=client.id,
+                upload_id=upload.id,
+                dimension=dimension,
+                total_spend=Decimal("100000.00"),
+                total_wasted_spend=Decimal("0.00"),
+                benchmark_cpa=Decimal("800.00"),
+            )
+            db.add(report)
+            db.flush()
+            reports[dimension] = report
+        report = reports[dimension]
+        report.total_wasted_spend = report.total_wasted_spend + Decimal(wasted)
+        db.add(
+            SegmentMetric(
+                report_id=report.id,
+                segment_value=segment_value,
+                spend=Decimal("84000.00"),
+                impressions=100000,
+                clicks=2000,
+                conversions=40,
+                revenue=Decimal("60000.00"),
+                cpa=Decimal("2100.00"),
+                is_significant=True,
+                is_flagged=flagged,
+                wasted_spend=Decimal(wasted),
+            )
+        )
+    db.commit()
+    db.refresh(run)
+    return run
