@@ -1,6 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+// jsdom has no WebGL, so Canvas is replaced with a plain stub that renders a
+// bare <canvas> and ignores its children — this proves FlowParticles' own
+// wrapper markup (role="img", aria-label, aria-hidden canvas) without ever
+// needing the Stream/points/PointMaterial tree to actually mount.
+vi.mock("@react-three/fiber", () => ({
+  Canvas: (props: { "aria-hidden"?: boolean | "true" | "false" }) => (
+    <canvas aria-hidden={props["aria-hidden"]} data-testid="canvas-stub" />
+  ),
+  useFrame: () => {},
+}));
+
+vi.mock("@react-three/drei", () => ({
+  PointMaterial: () => null,
+}));
 
 import { computeCoralShare } from "./FlowParticles";
+import FlowParticles from "./FlowParticles";
 
 // FlowParticles itself is never rendered in tests (jsdom has no WebGL — see
 // Hero.test.tsx, which mocks the whole module). What CAN be verified without
@@ -27,5 +44,17 @@ describe("computeCoralShare", () => {
   it("degrades to 0 on unparseable or missing input", () => {
     expect(computeCoralShare({ headlineWaste: "not-a-number", totalSpend: 400000 })).toBe(0);
     expect(computeCoralShare({ headlineWaste: 100000, totalSpend: "" })).toBe(0);
+  });
+});
+
+describe("FlowParticles accessibility", () => {
+  it("exposes role=img with a numeric aria-label, and hides the canvas from assistive tech", () => {
+    render(<FlowParticles headlineWaste={100000} totalSpend={400000} />);
+
+    const image = screen.getByRole("img");
+    expect(image).toHaveAccessibleName("Of Rs. 400,000 spent, Rs. 100,000 — 25.0% — is estimated waste.");
+
+    const canvas = screen.getByTestId("canvas-stub");
+    expect(canvas).toHaveAttribute("aria-hidden", "true");
   });
 });

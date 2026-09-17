@@ -8,7 +8,7 @@ import LogoutButton from "./LogoutButton";
 const LINKS = [
   { href: "/dashboard", label: "Report" },
   { href: "/dashboard/upload", label: "Upload" },
-  { href: "/dashboard/billing", label: "Billing" },
+  // Stage 7 adds /dashboard/billing here.
 ] as const;
 
 export default function DashboardNav({ businessName }: { businessName: string }) {

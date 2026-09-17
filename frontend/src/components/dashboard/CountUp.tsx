@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 
 import { formatPKR } from "@/lib/format";
 import { HERO_DURATION_MS } from "@/lib/motion";
@@ -23,18 +23,30 @@ export default function CountUp({
   durationMs = HERO_DURATION_MS,
   format = formatPKR,
 }: Props) {
-  // Only ever read when animate is true (see `displayed` below), so its
-  // initial value never leaks into the animate={false} render path.
-  const [shown, setShown] = useState(0);
+  // Seeded to `value`, not 0: the server always renders the final figure
+  // (reduced motion on the server — see useReducedMotion's getServerSnapshot),
+  // so an animate={true} first client render must start from that same final
+  // text or hydration mismatches and the wrong number is briefly visible.
+  const [shown, setShown] = useState(value);
 
-  useEffect(() => {
-    // No setState here: when animation is off there is nothing to
-    // synchronize with an external system, and `displayed` below already
-    // renders `value` directly. (A synchronous setState in an effect body
-    // is what react-hooks/set-state-in-effect flags as cascading-render
-    // risk — the setShown calls below happen inside the rAF callback, an
-    // external-system subscription, which the rule allows.)
+  // A LAYOUT effect, not a passive one: it runs synchronously after the DOM
+  // is updated but before the browser paints, so the reset to 0 below is
+  // never itself painted as a separate frame — the browser's first
+  // post-hydration paint already shows 0, not a "final value, then rewind
+  // to 0" flash. This is the textbook use case useLayoutEffect exists for
+  // (React docs: "measure layout... before the browser has a chance to
+  // repaint"); react-hooks/set-state-in-effect's cascading-render warning is
+  // aimed at useEffect cargo-culting external derived state, not at this.
+  useLayoutEffect(() => {
+    // No setState here when animation is off: `displayed` below already reads
+    // `value` directly in that branch, so `shown` staying stale is harmless.
     if (!animate) return;
+
+    // Deliberate pre-paint reset (see comment above); this is exactly what
+    // useLayoutEffect is for, and it is what stops the SSR final value from
+    // ever being visibly painted before the count-up begins.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setShown(0);
 
     let frame = 0;
     // Captured from the first rAF callback's own timestamp, not

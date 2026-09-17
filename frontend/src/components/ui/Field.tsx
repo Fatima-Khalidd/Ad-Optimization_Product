@@ -15,7 +15,7 @@ export default function Field({ label, name, type = "text", required = true, aut
         {label}
       </label>
       <input
-        className="rounded-sm border border-slate/30 bg-surface px-4 py-3 text-paper outline-none transition-colors focus:border-teal"
+        className="rounded-sm border border-slate/30 bg-surface px-4 py-3 text-paper outline-none transition-colors focus:border-teal focus-visible:ring-1 focus-visible:ring-teal"
         id={name}
         name={name}
         type={type}

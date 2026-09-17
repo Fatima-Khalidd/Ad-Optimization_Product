@@ -194,13 +194,18 @@ describe("UploadPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
 
     await vi.waitFor(() => expect(screen.getByText(/Queued/)).toBeInTheDocument());
+    const statusRegion = screen.getByRole("status");
+    expect(statusRegion).toHaveAttribute("aria-live", "polite");
+    expect(statusRegion).toHaveTextContent(/Queued/);
 
     await vi.advanceTimersByTimeAsync(2000);
     await vi.waitFor(() => expect(screen.getByText(/Running/)).toBeInTheDocument());
     expect(fetchMock).toHaveBeenCalledWith("/api/runs/5", expect.anything());
+    expect(screen.getByRole("status")).toHaveTextContent(/Running/);
 
     await vi.advanceTimersByTimeAsync(2000);
     await vi.waitFor(() => expect(screen.getByText(/awaiting admin review/i)).toBeInTheDocument());
+    expect(screen.getByRole("status")).toHaveTextContent(/Done/);
 
     const callsAfterDone = fetchMock.mock.calls.length;
     await vi.advanceTimersByTimeAsync(6000);

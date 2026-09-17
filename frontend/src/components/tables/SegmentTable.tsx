@@ -41,10 +41,12 @@ export default function SegmentTable({ dimensions }: { dimensions: DimensionOut[
       <div aria-label="Breakdown dimension" className="mt-6 flex flex-wrap gap-6 border-b border-slate/20" role="tablist">
         {dimensions.map((candidate, index) => (
           <button
+            aria-controls={`panel-${candidate.dimension}`}
             aria-selected={index === active}
             className={`-mb-px border-b-2 pb-3 text-sm ${
               index === active ? "border-teal text-paper" : "border-transparent text-slate"
             }`}
+            id={`tab-${candidate.dimension}`}
             key={candidate.dimension}
             onClick={() => setActive(index)}
             // role="tab" promises arrow-key navigation to assistive tech, so honour it:
@@ -77,12 +79,24 @@ export default function SegmentTable({ dimensions }: { dimensions: DimensionOut[
       </p>
 
       {dimension.segments.length === 0 ? (
-        <p className="mt-8 max-w-xl text-slate">
+        <p
+          aria-labelledby={`tab-${dimension.dimension}`}
+          className="mt-8 max-w-xl text-slate"
+          id={`panel-${dimension.dimension}`}
+          role="tabpanel"
+          tabIndex={0}
+        >
           No rows in this upload carry a {label.toLowerCase()} value. Ad platforms cannot always export every
           breakdown together — upload a second export with this breakdown to see it here.
         </p>
       ) : (
-        <div className="mt-6 overflow-x-auto">
+        <div
+          aria-labelledby={`tab-${dimension.dimension}`}
+          className="mt-6 overflow-x-auto"
+          id={`panel-${dimension.dimension}`}
+          role="tabpanel"
+          tabIndex={0}
+        >
           <table className="w-full min-w-[48rem] text-sm">
             <thead>
               <tr className="border-b border-slate/20 text-left text-xs uppercase tracking-[0.14em] text-slate">

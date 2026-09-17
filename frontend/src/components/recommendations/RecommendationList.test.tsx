@@ -48,7 +48,10 @@ describe("RecommendationList", () => {
 
     const trigger = screen.getByRole("button", { name: /Audience Network/ });
     expect(trigger).toHaveAttribute("aria-expanded", "false");
-    expect(trigger).toHaveAttribute("aria-controls");
+    // aria-controls must not reference a panel id that does not exist in the
+    // DOM — the panel is unmounted while collapsed, so the attribute is
+    // dropped entirely rather than pointing at nothing.
+    expect(trigger).not.toHaveAttribute("aria-controls");
     expect(screen.getByText("Cut Rs. 50,400")).toBeInTheDocument();
     expect(screen.getByText("Placement")).toBeInTheDocument();
     expect(screen.queryByText(recommendations[0].reason)).not.toBeInTheDocument();
@@ -62,8 +65,13 @@ describe("RecommendationList", () => {
     await user.click(screen.getByRole("button", { name: /Audience Network/ }));
 
     expect(await screen.findByText(recommendations[0].reason)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Audience Network/ })).toHaveAttribute("aria-expanded", "true");
+    const trigger = screen.getByRole("button", { name: /Audience Network/ });
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("Currently spending Rs. 84,000")).toBeInTheDocument();
+    // Once expanded, aria-controls names the now-existing panel element.
+    const controlsId = trigger.getAttribute("aria-controls");
+    expect(controlsId).toBeTruthy();
+    expect(document.getElementById(controlsId as string)).toBeInTheDocument();
   });
 
   it("collapses again on a second click", async () => {

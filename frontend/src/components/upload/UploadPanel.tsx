@@ -225,7 +225,7 @@ export default function UploadPanel() {
       ) : null}
 
       {run !== null ? (
-        <div className="mt-10 border-t border-slate/20 pt-6">
+        <div className="mt-10 border-t border-slate/20 pt-6" role="status" aria-live="polite">
           <p className="text-paper">{RUN_LABELS[run.status]}</p>
           {run.status === "failed" && run.error_message ? (
             <p className="mt-2 text-coral">{run.error_message}</p>

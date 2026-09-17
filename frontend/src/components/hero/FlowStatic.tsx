@@ -87,21 +87,24 @@ export default function FlowStatic({ totalSpend, headlineWaste }: Props) {
         strokeWidth={coralWidth}
       />
 
-      {/* Working-spend node */}
+      {/* Working-spend node. Labels are right-anchored at the viewport edge (x=780,
+          textAnchor="end") rather than left-anchored at a fixed x, because real spend
+          figures can run to 9+ digits ("Rs. 1,084,329") — a left anchor would let long
+          figures run past the viewBox's right edge and clip. */}
       <circle cx="640" cy="150" fill={HERO_COLORS.teal} r="9" />
-      <text fill={HERO_COLORS.slate} fontSize="15" letterSpacing="2" x="662" y="140">
+      <text fill={HERO_COLORS.slate} fontSize="15" letterSpacing="2" textAnchor="end" x="780" y="140">
         Working spend
       </text>
-      <text className="numeral" fill="currentColor" fontSize="24" x="662" y="172">
+      <text className="numeral" fill="currentColor" fontSize="24" textAnchor="end" x="780" y="172">
         {formatPKR(working)}
       </text>
 
       {/* Wasted node */}
       <circle cx="640" cy="348" fill={HERO_COLORS.coral} r="9" />
-      <text fill={HERO_COLORS.coral} fontSize="15" letterSpacing="2" x="662" y="338">
+      <text fill={HERO_COLORS.coral} fontSize="15" letterSpacing="2" textAnchor="end" x="780" y="338">
         Wasted
       </text>
-      <text className="numeral" fill={HERO_COLORS.coral} fontSize="24" x="662" y="370">
+      <text className="numeral" fill={HERO_COLORS.coral} fontSize="24" textAnchor="end" x="780" y="370">
         {formatPKR(waste)}
       </text>
     </svg>

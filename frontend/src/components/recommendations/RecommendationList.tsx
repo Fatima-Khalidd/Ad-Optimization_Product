@@ -34,7 +34,11 @@ export default function RecommendationList({ recommendations }: { recommendation
         return (
           <li key={recommendation.id}>
             <button
-              aria-controls={panelId}
+              // Only pointed at a real element while expanded — the panel is
+              // unmounted while collapsed (in both the reduced-motion and the
+              // animated branch below), so aria-controls must not reference an id
+              // that does not currently exist in the accessibility tree.
+              aria-controls={open ? panelId : undefined}
               aria-expanded={open}
               className="flex w-full flex-wrap items-baseline justify-between gap-x-6 gap-y-2 py-5 text-left"
               onClick={() => setOpenId(open ? null : recommendation.id)}

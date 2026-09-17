@@ -76,6 +76,23 @@ describe("FlowStatic", () => {
     expect(lowShareWidth).not.toBe(highShareWidth);
   });
 
+  it("keeps 9-figure amounts inside the viewBox by right-anchoring the right-hand labels", () => {
+    render(<FlowStatic headlineWaste="123456789.00" totalSpend="987654321.00" />);
+
+    const workingLabel = screen.getByText("Working spend");
+    const wastedLabel = screen.getByText("Wasted");
+    const workingFigure = screen.getByText("Rs. 864,197,532");
+    const wastedFigure = screen.getByText("Rs. 123,456,789");
+
+    // viewBox is "0 0 800 420" — right-anchoring at x=780 (well inside 800) with
+    // textAnchor="end" keeps text growing leftward from a fixed edge, so no width
+    // of figure can run past the viewport regardless of digit count.
+    [workingLabel, wastedLabel, workingFigure, wastedFigure].forEach((node) => {
+      expect(node).toHaveAttribute("text-anchor", "end");
+      expect(Number(node.getAttribute("x"))).toBeLessThanOrEqual(800);
+    });
+  });
+
   it("never renders a NaN attribute when given unparseable input", () => {
     const { container } = render(<FlowStatic headlineWaste="abc" totalSpend="abc" />);
 

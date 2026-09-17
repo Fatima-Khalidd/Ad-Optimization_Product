@@ -203,6 +203,26 @@ describe("SegmentTable", () => {
   });
 });
 
+it("wires the panel to the selected tab with aria-controls/aria-labelledby, and updates on switch", async () => {
+  const user = userEvent.setup();
+  render(<SegmentTable dimensions={dimensions} />);
+
+  const placementTab = screen.getByRole("tab", { name: "Placement" });
+  const panel = screen.getByRole("tabpanel");
+  expect(placementTab).toHaveAttribute("id", "tab-placement");
+  expect(placementTab).toHaveAttribute("aria-controls", "panel-placement");
+  expect(panel).toHaveAttribute("id", "panel-placement");
+  expect(panel).toHaveAttribute("aria-labelledby", "tab-placement");
+
+  await user.click(screen.getByRole("tab", { name: "Age group" }));
+
+  const ageTab = screen.getByRole("tab", { name: "Age group" });
+  const updatedPanel = screen.getByRole("tabpanel");
+  expect(ageTab).toHaveAttribute("aria-controls", "panel-age_group");
+  expect(updatedPanel).toHaveAttribute("id", "panel-age_group");
+  expect(updatedPanel).toHaveAttribute("aria-labelledby", "tab-age_group");
+});
+
 it("moves between tabs with the arrow keys", async () => {
   const user = userEvent.setup();
   render(<SegmentTable dimensions={dimensions} />);
