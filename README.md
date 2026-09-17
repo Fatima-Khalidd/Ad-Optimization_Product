@@ -94,6 +94,23 @@ cd backend && pytest
 cd frontend && npm run lint && npx tsc --noEmit && npm test && npm run build
 ```
 
+### Admin panel (Stage 6)
+
+Create an operator account, then sign in at `/login` and open `/admin`:
+
+```bash
+cd backend
+python scripts/create_admin.py --email you@example.com --password "a-long-password"
+```
+
+- `/admin/runs` — approval queue. A client cannot see a report until its run is approved here.
+- `/admin/clients/<id>` — base fee, performance fee %, and per-client `PipelineConfig` overrides
+  (unknown keys are refused with 422).
+- `/admin/invoices` — draft for a client and period, confirm the recovered-waste figure, then
+  issue or void. The suggestion is the before/after comparison from `docs/PLAN.md` §1 #5; the
+  admin always confirms it.
+- `/admin/audit` — every approve, reject, client update and invoice action, with before/after JSON.
+
 ### Analysis pipeline (Stage 1)
 
 Run the analysis on any CSV that matches `backend/tests/fixtures/minimal_valid.csv`'s columns:
