@@ -61,7 +61,36 @@ def test_oversize_upload_returns_413(client_a: TestClient, monkeypatch):
     response = _post(client_a, "huge.csv", body)
 
     assert response.status_code == 413
-    assert "larger than 1 MB" in response.json()["detail"]
+    detail = response.json()["detail"]
+    assert "larger than 1 MB" in detail["message"]
+    assert detail["max_upload_mb"] == 1
+
+
+def test_oversize_upload_is_rejected_by_content_length_before_parsing(
+    client_a: TestClient, monkeypatch
+):
+    """A genuinely oversize body must be caught by the Content-Length short-circuit."""
+    monkeypatch.setenv("MAX_UPLOAD_MB", "1")
+    get_settings.cache_clear()
+    body = (HEADER + GOOD_ROW * 20000).encode()  # ~1.5 MB, so Content-Length is genuine
+    assert len(body) > 1024 * 1024
+
+    response = _post(client_a, "huge.csv", body)
+
+    assert response.status_code == 413
+    detail = response.json()["detail"]
+    assert detail["message"] == "file is larger than 1 MB"
+    assert detail["max_upload_mb"] == 1
+
+
+def test_upload_within_the_limit_still_succeeds(client_a: TestClient, monkeypatch):
+    """The Content-Length short-circuit must not reject a legitimately sized upload."""
+    monkeypatch.setenv("MAX_UPLOAD_MB", "1")
+    get_settings.cache_clear()
+
+    response = _post(client_a, "small.csv", (HEADER + GOOD_ROW).encode())
+
+    assert response.status_code == 201, response.text
 
 
 def test_upload_requires_authentication():

@@ -47,7 +47,7 @@ def create_upload(session: Session, client: Client, filename: str, data: bytes) 
     if len(data) > max_bytes:
         raise FileTooLargeError(
             {
-                "message": f"file exceeds the {get_settings().max_upload_mb}MB limit",
+                "message": f"file is larger than {get_settings().max_upload_mb} MB",
                 "max_upload_mb": get_settings().max_upload_mb,
             }
         )
