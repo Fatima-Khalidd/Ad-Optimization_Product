@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from contextlib import contextmanager
 
 from sqlalchemy import Engine, MetaData, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -48,10 +49,27 @@ def get_engine() -> Engine:
     return _engine
 
 
-def get_session() -> Iterator[Session]:
-    """FastAPI dependency: one session per request, always closed."""
+@contextmanager
+def session_scope() -> Iterator[Session]:
+    """A session outside the request cycle: background tasks, scripts, the CLI.
+
+    `get_session()` is a FastAPI dependency and its session is closed before background
+    tasks run, so anything that runs after the response must open its own. Commits on a
+    clean exit, rolls back (leaving no rows) if the block raises.
+    """
     get_engine()
     if _session_factory is None:
         raise RuntimeError("engine not configured")
     with _session_factory() as session:
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+
+
+def get_session() -> Iterator[Session]:
+    """FastAPI dependency: one session per request, always closed."""
+    with session_scope() as session:
         yield session
