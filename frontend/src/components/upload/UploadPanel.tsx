@@ -174,6 +174,9 @@ export default function UploadPanel() {
             if (file) void send(file);
             event.target.value = "";
           }}
+          // Native picker filter. JS still re-checks the extension in send(), because
+          // `accept` is advisory: a user can switch the picker to "All files".
+          accept=".csv,text/csv"
           type="file"
         />
       </div>

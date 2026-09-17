@@ -69,13 +69,17 @@ describe("UploadPanel", () => {
   it("refuses a non-CSV file before calling the API", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const user = userEvent.setup();
     render(<UploadPanel />);
 
-    await user.upload(
-      screen.getByLabelText("Choose a CSV file"),
-      new File(["%PDF"], "report.pdf", { type: "application/pdf" }),
-    );
+    // The input carries accept=".csv", but that is only advisory — a user can switch the
+    // native picker to "All files". fireEvent bypasses user-event's accept filter so this
+    // test exercises the JS guard, which is the thing that actually has to hold.
+    const input = screen.getByLabelText("Choose a CSV file") as HTMLInputElement;
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      value: [new File(["%PDF"], "report.pdf", { type: "application/pdf" })],
+    });
+    fireEvent.change(input);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Upload a .csv file");
     expect(fetchMock).not.toHaveBeenCalled();
