@@ -135,7 +135,11 @@ def test_get_storage_rejects_an_unknown_backend(monkeypatch):
     get_settings.cache_clear()
 
 
-def test_settings_defaults():
+def test_settings_defaults(monkeypatch):
+    # The autouse `storage_root` fixture (tests/services/conftest.py) points every other
+    # test in this package at a tmp_path storage root; undo that here to see the real defaults.
+    monkeypatch.delenv("STORAGE_BACKEND", raising=False)
+    monkeypatch.delenv("STORAGE_ROOT", raising=False)
     get_settings.cache_clear()
     settings = get_settings()
 
