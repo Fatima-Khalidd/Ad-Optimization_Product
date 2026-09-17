@@ -22,6 +22,18 @@ class NotFoundError(AppError):
     status_code = 404
 
 
+class ConflictError(AppError):
+    """The row exists but is in the wrong state for this transition."""
+
+    status_code = 409
+
+
+class InvalidConfigError(AppError):
+    """A config_overrides payload PipelineConfig refuses."""
+
+    status_code = 422
+
+
 class DuplicateUploadError(AppError):
     status_code = 409
 
