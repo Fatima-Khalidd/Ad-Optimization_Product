@@ -40,12 +40,29 @@ Admins are never created through signup. Seed one:
 
 ```bash
 cd backend
-.venv/Scripts/python scripts/create_admin.py --email you@example.com --password change-me-now
+.venv/Scripts/python -m scripts.create_admin --email you@example.com
 ```
 
-Auth uses `httpOnly` cookies (`access_token` ~15 min, `refresh_token` ~7 days). Lifetimes and
-`COOKIE_SECURE` are set in `backend/.env`; `COOKIE_SECURE` is forced on whenever `ENV=prod`.
-Login is limited to 5 attempts per minute per IP address.
+The password is prompted for (not echoed) so it stays out of your shell history; `--password`
+exists for scripted use. The script exits 2 on a duplicate email, an invalid email, or a
+password shorter than 8 characters, and writes nothing in those cases.
+
+### Auth API
+
+| Method | Path | Success |
+|---|---|---|
+| POST | `/api/auth/signup` | 201 — creates a client account and signs it in |
+| POST | `/api/auth/login` | 200 |
+| POST | `/api/auth/logout` | 204 |
+| POST | `/api/auth/refresh` | 200 — rotates both cookies |
+| GET | `/api/auth/me` | 200 — `client` is `null` for an admin |
+
+Auth uses `httpOnly` cookies (`access_token` ~15 min, `refresh_token` ~7 days), so the frontend
+never handles a token in JavaScript. Lifetimes and `COOKIE_SECURE` are set in `backend/.env`;
+`COOKIE_SECURE` is forced on whenever `ENV=prod`. Login is limited to 5 attempts per minute per
+IP address (429 after that). Failures are deliberately indistinguishable: a wrong password, an
+unknown email and a deactivated account all return `401 {"detail": "invalid credentials"}`; a
+duplicate signup returns `409 {"detail": "email already registered"}`.
 
 ### Tests
 
