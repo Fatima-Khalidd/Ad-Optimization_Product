@@ -100,15 +100,18 @@ Create an operator account, then sign in at `/login` and open `/admin`:
 
 ```bash
 cd backend
-python scripts/create_admin.py --email you@example.com --password "a-long-password"
+.venv/Scripts/python -m scripts.create_admin --email you@example.com
 ```
 
 - `/admin/runs` — approval queue. A client cannot see a report until its run is approved here.
 - `/admin/clients/<id>` — base fee, performance fee %, and per-client `PipelineConfig` overrides
   (unknown keys are refused with 422).
 - `/admin/invoices` — draft for a client and period, confirm the recovered-waste figure, then
-  issue or void. The suggestion is the before/after comparison from `docs/PLAN.md` §1 #5; the
-  admin always confirms it.
+  issue or void. The suggestion compares the segments flagged before the period against the
+  same segments inside it, **per dimension, and takes the largest single dimension — never the
+  sum** (`docs/PLAN.md` §1 #5): one saving shows up in the placement, age-group and time-slot
+  breakdowns at once, so adding them would bill the client about three times over. The admin
+  always confirms the final figure, and a drafted invoice's base fee is frozen at draft time.
 - `/admin/audit` — every approve, reject, client update and invoice action, with before/after JSON.
 
 ### Analysis pipeline (Stage 1)
