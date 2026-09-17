@@ -30,6 +30,11 @@ class AnalysisRun(Base):
     status: Mapped[str] = mapped_column(RUN_STATUS, nullable=False, default="queued")
     review_status: Mapped[str] = mapped_column(REVIEW_STATUS, nullable=False, default="pending")
     headline_waste: Mapped[Decimal | None] = mapped_column(Money)
+    # The TRUE account total (Stage 3 close-out F1): analyzer.account_total_spend(df), not
+    # max(per-dimension total_spend) - the latter understates spend whenever the export is
+    # only partially populated (docs/PLAN.md section 1 #3). Nullable so pre-migration rows
+    # fall back to the old (wrong-but-available) per-dimension max in the read model.
+    account_total_spend: Mapped[Decimal | None] = mapped_column(Money)
     error_message: Mapped[str | None] = mapped_column(Text)
     reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -237,3 +237,27 @@ def test_run_for_an_unknown_id_is_404(client_a: TestClient):
 
 def test_runs_require_authentication(api: TestClient):
     assert api.get("/api/runs/1").status_code == 401
+
+
+def test_partially_populated_upload_end_to_end_has_the_true_account_total(
+    client_a: TestClient, db: Session
+):
+    """F7: upload, analyse, approve and fetch the report for `partial_dimensions.csv` -
+    no dimension in that fixture is fully populated (each dimension's own total_spend is
+    1500.00), so this is the end-to-end proof of F1's fix: the report's total_spend must
+    be the true account total (3500.00), not the understated per-dimension max."""
+    fixture = Path(__file__).resolve().parents[1] / "fixtures" / "partial_dimensions.csv"
+    upload_id = _upload(client_a, fixture.read_bytes(), name="partial_dimensions.csv")
+
+    run_id = client_a.post(f"/api/analyze/{upload_id}").json()["id"]
+    _approve(db, run_id)
+
+    report = client_a.get(f"/api/reports/{run_id}").json()
+
+    assert len(report["dimensions"]) == 3
+    assert Decimal(report["total_spend"]) == Decimal("3500.00")
+    assert all(Decimal(d["total_spend"]) == Decimal("1500.00") for d in report["dimensions"])
+    expected_pct = (Decimal(report["headline_waste"]) / Decimal("3500.00") * 100).quantize(
+        Decimal("0.01")
+    )
+    assert Decimal(report["recovery_pct"]) == expected_pct

@@ -7,6 +7,7 @@ nowhere else (docs/PLAN.md section 1 #6).
 import io
 import logging
 import math
+from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import select, update
@@ -16,7 +17,8 @@ from app.core.db import session_scope
 from app.core.errors import InvalidUploadError, NotFoundError
 from app.models import AdDataUpload, AnalysisRun, Client, SegmentMetric, WasteReport
 from app.models import Recommendation as RecommendationRow
-from app.pipeline.analyzer import analyze_all_dimensions
+from app.models._types import utcnow
+from app.pipeline.analyzer import account_total_spend, analyze_all_dimensions
 from app.pipeline.config import DIMENSIONS, PipelineConfig
 from app.pipeline.loader import load_csv
 from app.pipeline.optimizer import build_recommendations, headline_waste
@@ -27,6 +29,12 @@ from app.services.upload import get_upload
 logger = logging.getLogger(__name__)
 
 TWO_PLACES = Decimal("0.01")
+
+# A run is only reused (F4) while it is younger than this - past it, a `queued`/`running`
+# row is treated as dead (a worker likely crashed mid-run) rather than blocking every later
+# POST /api/analyze/{id} for that client+upload forever. Stage 8 backlog item: a real sweep
+# that re-queues stale `running` rows (docs/superpowers/plans/INTERFACES.md close-out #7).
+ANALYSIS_REUSE_WINDOW_MINUTES = 15
 
 
 def to_money(value: float | Decimal) -> Decimal:
@@ -71,12 +79,14 @@ def create_run(session: Session, client: Client, upload_id: int) -> AnalysisRun:
                 "upload_id": upload.id,
             }
         )
+    reuse_cutoff = utcnow() - timedelta(minutes=ANALYSIS_REUSE_WINDOW_MINUTES)
     in_flight = session.scalars(
         select(AnalysisRun)
         .where(
             AnalysisRun.client_id == client.id,
             AnalysisRun.upload_id == upload.id,
             AnalysisRun.status.in_(("queued", "running")),
+            AnalysisRun.created_at >= reuse_cutoff,
         )
         .order_by(AnalysisRun.id.desc())
     ).first()
@@ -109,15 +119,27 @@ def get_run(session: Session, client_id: int, run_id: int) -> AnalysisRun:
     return run
 
 
+_GENERIC_ERROR_MESSAGE = "the analysis could not be completed"
+
+# A small allowlist of exception types whose default str() is known-safe (no storage key,
+# server path, or file hash can appear in it) - everything else falls back to the generic
+# message. `PermissionError` and a bare `ValueError` (e.g. "invalid storage key: '...'")
+# are deliberately NOT here: both were shown to leak a full path/key when probed.
+_SAFE_MESSAGES: dict[type[Exception], str] = {
+    FileNotFoundError: "the uploaded file could not be read",
+}
+
+
 def _error_message(exc: Exception) -> str:
     """A short, client-facing reason - never a storage key, tenant path, or file hash.
 
-    The full detail (including any key/path) goes to `logger.exception` instead; this
-    string is what ends up in a `Text` column an admin (and eventually a client) may see.
+    The full detail (including any key/path) always goes to `logger.exception` instead;
+    this string is what ends up in a `Text` column a client can see (F3, Stage 3 close-out
+    #6). Only exceptions on the allowlist above get a specific message - anything else,
+    however descriptive, is reduced to a single generic sentence rather than risk leaking
+    part of a path or key through `str(exc)`.
     """
-    if isinstance(exc, FileNotFoundError):
-        return "the uploaded file could not be read"
-    return f"{type(exc).__name__}: {exc}"[:1000]
+    return _SAFE_MESSAGES.get(type(exc), _GENERIC_ERROR_MESSAGE)
 
 
 def execute_run(run_id: int) -> None:
@@ -212,6 +234,7 @@ def _persist_analysis(session: Session, run: AnalysisRun) -> None:
             )
 
     run.headline_waste = to_money(headline_waste(results))
+    run.account_total_spend = to_money(account_total_spend(result.df))
     run.status = "done"
     session.commit()
 
@@ -274,13 +297,18 @@ def _build_report(session: Session, run: AnalysisRun) -> ReportOut:
 
     recommendations.sort(key=lambda rec: rec.recommended_cut, reverse=True)
 
-    # Account spend = the widest dimension's total. WasteReport has no account-level column
-    # (Task 5's schema), and dimensions can cover different subsets of the rows when a
-    # column is partially blank (docs/PLAN.md section 1 #3), so the largest per-dimension
-    # total is the best exact account figure available; it equals the true account total
-    # whenever at least one dimension is fully populated, which the loader guarantees for
-    # any row that has at least one dimension present.
-    total_spend = max((d.total_spend for d in dimensions), default=ZERO)
+    # F1 (Stage 3 close-out #1): the true account total, persisted on the run from
+    # analyzer.account_total_spend(df) at execute_run time - NOT max(per-dimension total),
+    # which understates spend whenever the export is only partially populated (docs/PLAN.md
+    # section 1 #3; measured 1500 vs the true 3500 on partial_dimensions.csv). The fallback
+    # below only fires for a run persisted before this column existed (account_total_spend
+    # is NULL): those legacy rows have no better figure available than the old largest-
+    # dimension approximation.
+    total_spend = (
+        run.account_total_spend
+        if run.account_total_spend is not None
+        else max((d.total_spend for d in dimensions), default=ZERO)
+    )
     headline = run.headline_waste if run.headline_waste is not None else ZERO
     recovery_pct = (
         ZERO

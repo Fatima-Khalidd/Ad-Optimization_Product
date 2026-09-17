@@ -10,7 +10,7 @@ from app.core.deps import CurrentClient
 from app.core.errors import FileTooLargeError, InvalidUploadError
 from app.core.settings import get_settings
 from app.models import AdDataUpload
-from app.schemas.uploads import UploadOut
+from app.schemas.uploads import UploadOut, UploadRejected
 from app.services.upload import create_upload, get_upload, list_uploads, template_csv
 
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
@@ -89,15 +89,22 @@ async def upload_file(
     max_bytes = get_settings().max_upload_mb * 1024 * 1024
     _reject_by_content_length(request, max_bytes)
     data = await _read_limited(file, max_bytes)
-    upload = create_upload(session, client, file.filename or "upload.csv", data)
+    try:
+        upload = create_upload(session, client, file.filename or "upload.csv", data)
+    except ValueError as exc:
+        # create_upload raises a plain ValueError when client.config_overrides is corrupt
+        # (Stage 6 validates on write, so this should be unreachable) - translated here
+        # into a clean 422 rather than letting it fall through to a 500, mirroring
+        # app/routers/analysis.py's identical guard around create_run.
+        raise InvalidUploadError(str(exc)) from exc
     if upload.status == "failed":
         raise InvalidUploadError(
-            {
-                "upload_id": upload.id,
-                "status": upload.status,
-                "errors": upload.validation_report.get("errors", []),
-                "warnings": upload.validation_report.get("warnings", []),
-            }
+            UploadRejected(
+                upload_id=upload.id,
+                status=upload.status,
+                errors=upload.validation_report.get("errors", []),
+                warnings=upload.validation_report.get("warnings", []),
+            ).model_dump()
         )
     return upload
 

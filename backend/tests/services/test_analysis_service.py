@@ -126,6 +126,68 @@ def test_create_run_starts_a_fresh_run_once_the_previous_one_is_done(
     assert len(rows) == 2
 
 
+def test_create_run_starts_a_fresh_run_once_the_previous_one_failed(
+    session: Session, client_row: Client
+):
+    upload = create_upload(session, client_row, "aug.csv", GOOD)
+
+    first = create_run(session, client_row, upload.id)
+    first.status = "failed"
+    session.commit()
+
+    second = create_run(session, client_row, upload.id)
+
+    assert second.id != first.id
+    rows = session.scalars(select(AnalysisRun).where(AnalysisRun.upload_id == upload.id)).all()
+    assert len(rows) == 2
+
+
+def test_create_run_reuses_a_running_run_still_inside_the_reuse_window(
+    session: Session, client_row: Client
+):
+    from datetime import timedelta
+
+    from app.models._types import utcnow
+
+    upload = create_upload(session, client_row, "aug.csv", GOOD)
+
+    first = create_run(session, client_row, upload.id)
+    first.status = "running"
+    first.created_at = utcnow() - timedelta(minutes=5)
+    session.commit()
+
+    second = create_run(session, client_row, upload.id)
+
+    assert second.id == first.id
+    rows = session.scalars(select(AnalysisRun).where(AnalysisRun.upload_id == upload.id)).all()
+    assert len(rows) == 1
+
+
+def test_create_run_does_not_reuse_a_stale_running_run_past_the_reuse_window(
+    session: Session, client_row: Client
+):
+    """F4: a worker that died mid-run leaves a `running` row forever otherwise, blocking
+    every later POST /api/analyze/{id} for that client+upload. Past the reuse window a
+    fresh run must be created instead."""
+    from datetime import timedelta
+
+    from app.models._types import utcnow
+    from app.services.analysis import ANALYSIS_REUSE_WINDOW_MINUTES
+
+    upload = create_upload(session, client_row, "aug.csv", GOOD)
+
+    first = create_run(session, client_row, upload.id)
+    first.status = "running"
+    first.created_at = utcnow() - timedelta(minutes=ANALYSIS_REUSE_WINDOW_MINUTES + 15)
+    session.commit()
+
+    second = create_run(session, client_row, upload.id)
+
+    assert second.id != first.id
+    rows = session.scalars(select(AnalysisRun).where(AnalysisRun.upload_id == upload.id)).all()
+    assert len(rows) == 2
+
+
 def test_get_run_is_tenant_scoped(session: Session, client_row: Client, other_client_row: Client):
     theirs_upload = create_upload(session, other_client_row, "theirs.csv", GOOD)
     theirs_run = create_run(session, other_client_row, theirs_upload.id)
@@ -506,3 +568,73 @@ def test_execute_run_truncates_a_very_long_error_message(
     run = session.get(AnalysisRun, run.id)
     assert run.status == "failed"
     assert len(run.error_message) <= 1000
+
+
+# F3 (Stage 3 close-out #6): error_message is client-visible and must never leak a storage
+# key, a server path, or the file's sha256 - `PermissionError` and a `ValueError` naming a
+# storage key were both probed and found to leak. Only the small allowlist in
+# app.services.analysis._SAFE_MESSAGES gets a specific message; everything else collapses
+# to one generic sentence.
+_LEAK_MARKERS = ("uploads/", "/", "\\", "sha256")
+
+
+@pytest.mark.parametrize(
+    "boom",
+    [
+        pytest.param(
+            lambda: (_ for _ in ()).throw(
+                PermissionError(r"[Errno 13] Permission denied: 'D:\storage\uploads\7\abc.csv'")
+            ),
+            id="permission_error_leaks_a_full_path",
+        ),
+        pytest.param(
+            lambda: (_ for _ in ()).throw(
+                ValueError("invalid storage key: 'uploads/1/deadbeef.csv'")
+            ),
+            id="value_error_leaks_a_storage_key",
+        ),
+        pytest.param(
+            lambda: (_ for _ in ()).throw(RuntimeError("boom")),
+            id="generic_runtime_error",
+        ),
+    ],
+)
+def test_execute_run_sanitises_leaky_exceptions_to_a_generic_message(
+    session: Session,
+    client_row: Client,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    boom,
+):
+    upload = _upload_sample(session, client_row, tmp_path)
+    run = create_run(session, client_row, upload.id)
+
+    def _raise(df, config):
+        boom()
+
+    monkeypatch.setattr("app.services.analysis.analyze_all_dimensions", _raise)
+
+    execute_run(run.id)
+
+    session.expire_all()
+    run = session.get(AnalysisRun, run.id)
+    assert run.status == "failed"
+    assert run.error_message == "the analysis could not be completed"
+    for marker in _LEAK_MARKERS:
+        assert marker not in run.error_message
+    assert upload.file_sha256 not in run.error_message
+
+
+def test_execute_run_file_not_found_keeps_its_friendly_message(
+    session: Session, client_row: Client, tmp_path: Path
+):
+    upload = _upload_sample(session, client_row, tmp_path)
+    run = create_run(session, client_row, upload.id)
+    get_storage().delete(upload.file_path)
+
+    execute_run(run.id)
+
+    session.expire_all()
+    run = session.get(AnalysisRun, run.id)
+    assert run.status == "failed"
+    assert run.error_message == "the uploaded file could not be read"

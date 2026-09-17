@@ -43,6 +43,19 @@ def test_invalid_csv_returns_422_with_row_level_errors(client_a: TestClient):
     assert any(e["row"] == 1 and e["column"] == "spend" for e in detail["errors"]), detail
 
 
+def test_invalid_csv_422_body_matches_the_uploadrejected_shape(client_a: TestClient):
+    """F6: the 422 body is now built from `UploadRejected(...).model_dump()`, not a
+    hand-written dict - the JSON shape Stage 4 depends on must not change."""
+    response = _post(client_a, "broken.csv", BAD_CSV.encode())
+
+    assert response.status_code == 422
+    body = response.json()
+    assert set(body.keys()) == {"detail"}
+    assert set(body["detail"].keys()) == {"status", "upload_id", "errors", "warnings"}
+    assert isinstance(body["detail"]["errors"], list)
+    assert isinstance(body["detail"]["warnings"], list)
+
+
 def test_duplicate_upload_returns_409_naming_the_first_upload(client_a: TestClient):
     first = _post(client_a, "aug.csv", (HEADER + GOOD_ROW).encode()).json()
 
@@ -150,3 +163,30 @@ def test_admin_cannot_call_the_client_upload_route(admin_client: TestClient):
     response = _post(admin_client, "aug.csv", (HEADER + GOOD_ROW).encode())
 
     assert response.status_code == 403
+
+
+def test_template_csv_is_public_and_needs_no_session_cookie(api: TestClient):
+    """F5 / Stage 3 close-out #5: the template contains no tenant data, so it stays public
+    while every other /api/uploads route requires a client session."""
+    response = api.get("/api/uploads/template.csv")
+
+    assert response.status_code == 200
+    assert response.content.startswith(b"date,campaign_id,placement")
+
+
+def test_upload_with_a_corrupt_client_override_is_422_not_500(
+    client_a: TestClient, db, client_a_row
+):
+    """F2: create_upload calls PipelineConfig.from_overrides(client.config_overrides),
+    which raises a plain ValueError on a corrupt override dict - that must not escape as a
+    bare 500, mirroring the identical guard in app/routers/analysis.py."""
+    from app.models import Client
+
+    row = db.get(Client, client_a_row.id)
+    row.config_overrides = {"waste_multiplier": "not-a-number"}
+    db.commit()
+
+    response = _post(client_a, "aug.csv", (HEADER + GOOD_ROW).encode())
+
+    assert response.status_code == 422, response.text
+    assert "detail" in response.json()
