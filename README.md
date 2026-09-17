@@ -34,6 +34,19 @@ npm run dev
 ```
 Open http://localhost:3000 — `/api/*` is proxied to the backend.
 
+### Admin user (Stage 2)
+
+Admins are never created through signup. Seed one:
+
+```bash
+cd backend
+.venv/Scripts/python scripts/create_admin.py --email you@example.com --password change-me-now
+```
+
+Auth uses `httpOnly` cookies (`access_token` ~15 min, `refresh_token` ~7 days). Lifetimes and
+`COOKIE_SECURE` are set in `backend/.env`; `COOKIE_SECURE` is forced on whenever `ENV=prod`.
+Login is limited to 5 attempts per minute per IP address.
+
 ### Tests
 
 ```bash
