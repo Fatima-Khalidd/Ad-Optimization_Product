@@ -30,6 +30,10 @@ def create_app() -> FastAPI:
     application.include_router(analysis.router)
     application.include_router(reports.router)
 
+    from app.routers.admin import router as admin_router
+
+    application.include_router(admin_router)
+
     return application
 
 

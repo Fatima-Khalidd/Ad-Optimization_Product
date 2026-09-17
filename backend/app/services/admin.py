@@ -6,9 +6,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, InvalidConfigError, NotFoundError
-from app.models import AnalysisRun, Client, User
+from app.models import AnalysisRun, Client, SegmentMetric, User, WasteReport
 from app.pipeline.config import PipelineConfig
-from app.schemas.admin import ClientPatch
+from app.schemas.admin import ClientPatch, FlaggedSegmentOut, RunAdminOut, RunDimensionOut
 from app.services import audit
 
 CLIENT_AUDIT_FIELDS = ("base_fee", "performance_fee_pct", "config_overrides")
@@ -110,3 +110,69 @@ def approve_run(session: Session, actor: User, run_id: int, note: str | None = N
 
 def reject_run(session: Session, actor: User, run_id: int, note: str | None = None) -> AnalysisRun:
     return _review_run(session, actor, run_id, "rejected", note)
+
+
+def serialize_run(session: Session, run: AnalysisRun, client: Client | None = None) -> RunAdminOut:
+    """One run with everything the approval queue shows: per-dimension totals, the flagged
+    segments behind them and the config snapshot it was produced with.
+
+    Dimension totals are listed side by side and never summed — the headline figure is the
+    largest single dimension and is already stored on the run (docs/PLAN.md section 1 #1).
+
+    `client` lets a caller serializing many runs (the queue endpoint) pass in a row it
+    already fetched in bulk, so this never issues its own per-run client query. A caller
+    with just one run (approve/reject) can omit it and pay one extra query.
+    """
+    reports = list(
+        session.scalars(
+            select(WasteReport).where(WasteReport.run_id == run.id).order_by(WasteReport.dimension)
+        )
+    )
+    dimensions = [
+        RunDimensionOut(
+            dimension=r.dimension,
+            total_spend=r.total_spend,
+            total_wasted_spend=r.total_wasted_spend,
+            benchmark_cpa=r.benchmark_cpa,
+        )
+        for r in reports
+    ]
+
+    flagged: list[FlaggedSegmentOut] = []
+    if reports:
+        by_id = {r.id: r.dimension for r in reports}
+        rows = session.scalars(
+            select(SegmentMetric)
+            .where(SegmentMetric.report_id.in_(by_id), SegmentMetric.is_flagged.is_(True))
+            .order_by(SegmentMetric.wasted_spend.desc())
+        )
+        flagged = [
+            FlaggedSegmentOut(
+                dimension=by_id[s.report_id],
+                segment_value=s.segment_value,
+                spend=s.spend,
+                conversions=s.conversions,
+                cpa=s.cpa,
+                wasted_spend=s.wasted_spend,
+            )
+            for s in rows
+        ]
+
+    if client is None:
+        client = session.get(Client, run.client_id)
+    return RunAdminOut(
+        id=run.id,
+        client_id=run.client_id,
+        business_name=client.business_name if client else "",
+        upload_id=run.upload_id,
+        status=run.status,
+        review_status=run.review_status,
+        headline_waste=run.headline_waste,
+        review_note=run.review_note,
+        reviewed_by=run.reviewed_by,
+        reviewed_at=run.reviewed_at,
+        created_at=run.created_at,
+        dimensions=dimensions,
+        flagged_segments=flagged,
+        config_snapshot=run.config_snapshot or {},
+    )
