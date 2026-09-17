@@ -8,7 +8,8 @@ Every amount here is a Decimal quantized to 2 places; nothing is ever a float.
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError
@@ -75,6 +76,13 @@ def _waste_by_segment(session: Session, run_id: int) -> dict[SegmentKey, tuple[b
 def suggest_recovered_waste(
     session: Session, client_id: int, period_start: date, period_end: date
 ) -> Decimal:
+    """The largest single dimension's recovery, never the sum across dimensions.
+
+    docs/PLAN.md section 1 #5 (and the "Stage 6 correction" in INTERFACES.md): a run's
+    placement/age_group/time_slot breakdowns cover the same rupees, so summing the
+    per-dimension recoveries would bill the client roughly 3x for one saving. This mirrors
+    `optimizer.headline_waste`, which takes the same max-not-sum across dimensions.
+    """
     baseline = _latest_approved_run(session, client_id, before=_midnight(period_start))
     current = _latest_approved_run(
         session,
@@ -88,16 +96,19 @@ def suggest_recovered_waste(
     waste_then = _waste_by_segment(session, baseline.id)
     waste_now = _waste_by_segment(session, current.id)
 
-    total = Decimal("0")
-    for key, (flagged, then) in waste_then.items():
+    per_dimension: dict[str, Decimal] = {}
+    for (dimension, segment), (flagged, then) in waste_then.items():
         if not flagged:
             continue
         # A segment missing from the current run wastes nothing now. An unflagged segment
         # already carries wasted_spend = 0 (Stage 1 only assigns waste to flagged segments).
-        now = waste_now.get(key, (False, Decimal("0")))[1]
+        now = waste_now.get((dimension, segment), (False, Decimal("0")))[1]
         if then > now:
-            total += then - now
-    return total.quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+            per_dimension[dimension] = per_dimension.get(dimension, Decimal("0")) + (then - now)
+
+    if not per_dimension:
+        return Decimal("0.00")
+    return max(per_dimension.values()).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
 
 
 DEFAULT_DUE_DAYS = 14
@@ -140,21 +151,25 @@ def _fee_cap(client: Client) -> Decimal | None:
 
 
 def _next_invoice_number(session: Session, year: int) -> str:
-    """Highest existing number for the year, plus one.
+    """Highest existing numeric suffix for the year, plus one.
 
-    Suffixes are zero-padded to 4 digits, so MAX() on the text column is the numeric
-    maximum. RACE: two admins drafting in the same instant can both read this MAX and
-    build the same number. There is no SELECT ... FOR UPDATE on SQLite and the MVP has a
-    single admin, so we lean on the UNIQUE constraint on invoices.invoice_number: the
-    loser gets an IntegrityError and simply drafts again. Revisit if a second operator
-    is ever hired (docs/PLAN.md section 4).
+    The maximum is computed in Python over the parsed integer suffixes, not via SQL
+    text MAX() — a text MAX() is only numerically correct while every suffix is the same
+    width ("...-9999" > "...-10000" lexicographically), so it would wedge on the same
+    number forever once a year passes 9,999 invoices. `:04d` below is a *minimum* width:
+    it zero-pads short numbers but never truncates once the count grows past 4 digits, so
+    invoice numbers already issued below 10,000 keep their existing shape.
+
+    RACE: two admins drafting in the same instant can both compute this same next number.
+    `draft_invoice()` retries the insert on the resulting IntegrityError against the
+    UNIQUE constraint on invoices.invoice_number; this function has no locking of its own.
     """
     prefix = f"INV-{year}-"
-    highest = session.scalar(
-        select(func.max(Invoice.invoice_number)).where(Invoice.invoice_number.like(f"{prefix}%"))
-    )
-    nxt = 1 if highest is None else int(highest.rsplit("-", 1)[1]) + 1
-    return f"{prefix}{nxt:04d}"
+    numbers = session.scalars(
+        select(Invoice.invoice_number).where(Invoice.invoice_number.like(f"{prefix}%"))
+    ).all()
+    highest = max((int(number.rsplit("-", 1)[1]) for number in numbers), default=0)
+    return f"{prefix}{highest + 1:04d}"
 
 
 def draft_invoice(
@@ -164,12 +179,15 @@ def draft_invoice(
         raise ConflictError("period_end is before period_start")
     client = get_client(session, client_id)
 
+    # F3: an *overlap* check, not an exact-match one — otherwise Aug 1-31 and Aug 1-30
+    # both draft and both credit (and bill) the same recovered waste (INTERFACES.md
+    # "Stage 6 correction"). Two ranges overlap iff each starts on or before the other ends.
     existing = session.scalars(
         select(Invoice).where(
             Invoice.client_id == client_id,
-            Invoice.period_start == period_start,
-            Invoice.period_end == period_end,
             Invoice.status != "void",
+            Invoice.period_start <= period_end,
+            Invoice.period_end >= period_start,
         )
     ).first()
     if existing is not None:
@@ -186,22 +204,41 @@ def draft_invoice(
         suggested,
         cap=_fee_cap(client),
     )
-    invoice = Invoice(
-        invoice_number=_next_invoice_number(session, period_end.year),
-        client_id=client.id,
-        period_start=period_start,
-        period_end=period_end,
-        due_date=period_end + timedelta(days=DEFAULT_DUE_DAYS),  # issue_invoice() overwrites it
-        base_fee=fee.base_fee,
-        suggested_recovered_waste=suggested,
-        confirmed_recovered_waste=Decimal("0.00"),
-        performance_fee=fee.performance_fee,
-        total=fee.total,
-        amount_paid=Decimal("0.00"),
-        status="draft",
-    )
-    session.add(invoice)
-    session.flush()
+
+    # F4: two admins drafting in the same instant can compute the same next invoice
+    # number; the UNIQUE constraint on invoices.invoice_number then raises IntegrityError
+    # for the loser instead of silently duplicating. Retry a couple of times before
+    # surfacing a clear error rather than a raw 500.
+    last_error: IntegrityError | None = None
+    for _attempt in range(3):
+        candidate = Invoice(
+            invoice_number=_next_invoice_number(session, period_end.year),
+            client_id=client.id,
+            period_start=period_start,
+            period_end=period_end,
+            due_date=period_end + timedelta(days=DEFAULT_DUE_DAYS),  # issue() overwrites it
+            base_fee=fee.base_fee,
+            suggested_recovered_waste=suggested,
+            confirmed_recovered_waste=Decimal("0.00"),
+            performance_fee=fee.performance_fee,
+            total=fee.total,
+            amount_paid=Decimal("0.00"),
+            status="draft",
+        )
+        session.add(candidate)
+        try:
+            session.flush()
+        except IntegrityError as exc:
+            session.rollback()
+            last_error = exc
+            continue
+        invoice = candidate
+        break
+    else:
+        raise ConflictError(
+            "could not allocate a unique invoice number after retrying; try again"
+        ) from last_error
+
     audit.record(
         session,
         actor.id,
@@ -226,13 +263,17 @@ def confirm_invoice(
 
     client = get_client(session, invoice.client_id)
     before = audit.snapshot(invoice, INVOICE_AUDIT_FIELDS)
+    # F1: base_fee is frozen at draft time — recompute with the invoice's STORED base_fee,
+    # not the client's current one, so a later admin edit to the client's fee (Stage 6
+    # Task 2) can never silently change an already-drafted invoice's total. The
+    # performance_fee_pct is intentionally the client's CURRENT value (INTERFACES.md
+    # "Stage 6 correction").
     fee = calculate_fee(
-        _money(client.base_fee),
+        invoice.base_fee,
         Decimal(client.performance_fee_pct),
         _money(confirmed_recovered_waste),
         cap=_fee_cap(client),
     )
-    invoice.base_fee = fee.base_fee
     invoice.confirmed_recovered_waste = fee.recovered_waste
     invoice.performance_fee = fee.performance_fee
     invoice.total = fee.total

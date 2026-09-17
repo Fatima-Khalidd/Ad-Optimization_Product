@@ -6,8 +6,8 @@ from tests.api.helpers import make_client, make_run
 
 PERIOD_START = date(2026, 8, 1)
 PERIOD_END = date(2026, 8, 31)
-BEFORE = datetime(2026, 7, 20, tzinfo=UTC)   # baseline: the last approved run before August
-INSIDE = datetime(2026, 8, 25, tzinfo=UTC)   # current: an approved run inside August
+BEFORE = datetime(2026, 7, 20, tzinfo=UTC)  # baseline: the last approved run before August
+INSIDE = datetime(2026, 8, 25, tzinfo=UTC)  # current: an approved run inside August
 
 
 def _baseline(session, client):
@@ -167,6 +167,97 @@ def test_only_flagged_baseline_segments_are_counted(session):
 
     assert billing.suggest_recovered_waste(session, client.id, PERIOD_START, PERIOD_END) == Decimal(
         "0.00"
+    )
+
+
+def test_recovery_is_the_max_dimension_not_the_sum(session):
+    """INTERFACES.md "Stage 6 correction": the same rupees show up in every dimension's
+    breakdown, so the suggestion must be the largest single dimension's recovery, never the
+    sum. Worked example from the corrected spec: placement 52k->30k (22,000), age_group
+    45k->25k (20,000), time_slot 48k->28k (20,000) -> 22,000, NOT 62,000.
+    """
+    client = make_client(session)
+    make_run(
+        session,
+        client,
+        created_at=BEFORE,
+        review_status="approved",
+        segments=(
+            ("placement", "audience_network", "52000", True),
+            ("age_group", "18-24", "45000", True),
+            ("time_slot", "night", "48000", True),
+        ),
+    )
+    make_run(
+        session,
+        client,
+        created_at=INSIDE,
+        review_status="approved",
+        segments=(
+            ("placement", "audience_network", "30000", True),
+            ("age_group", "18-24", "25000", True),
+            ("time_slot", "night", "28000", True),
+        ),
+    )
+    session.commit()
+
+    result = billing.suggest_recovered_waste(session, client.id, PERIOD_START, PERIOD_END)
+    assert result == Decimal("22000.00")
+    assert result != Decimal("62000.00")
+
+
+def test_single_dimension_hand_check_is_unaffected_by_the_per_dimension_fix(session):
+    # Same worked example as test_hand_computed_suggestion, restated to make explicit that
+    # when everything is flagged on one dimension, max-of-one-dimension equals the sum:
+    # placement: (52,000 - 30,000) + (1,000 - 0) = 23,000.
+    client = make_client(session)
+    _baseline(session, client)
+    make_run(
+        session,
+        client,
+        created_at=INSIDE,
+        review_status="approved",
+        segments=(
+            ("placement", "audience_network", "30000", True),
+            ("placement", "reels", "0", False),
+        ),
+    )
+    session.commit()
+
+    assert billing.suggest_recovered_waste(session, client.id, PERIOD_START, PERIOD_END) == Decimal(
+        "23000.00"
+    )
+
+
+def test_the_largest_recovery_can_be_in_any_dimension_not_just_the_first(session):
+    """Proves the result is a genuine max(), not "whichever dimension is processed first"."""
+    client = make_client(session)
+    make_run(
+        session,
+        client,
+        created_at=BEFORE,
+        review_status="approved",
+        segments=(
+            ("age_group", "18-24", "10000", True),  # recovers 2,000 - inserted first
+            ("placement", "audience_network", "10000", True),  # recovers 1,000
+            ("time_slot", "night", "100000", True),  # recovers 50,000 - inserted last, biggest
+        ),
+    )
+    make_run(
+        session,
+        client,
+        created_at=INSIDE,
+        review_status="approved",
+        segments=(
+            ("age_group", "18-24", "8000", True),
+            ("placement", "audience_network", "9000", True),
+            ("time_slot", "night", "50000", True),
+        ),
+    )
+    session.commit()
+
+    assert billing.suggest_recovered_waste(session, client.id, PERIOD_START, PERIOD_END) == Decimal(
+        "50000.00"
     )
 
 
