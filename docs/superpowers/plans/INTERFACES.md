@@ -244,3 +244,11 @@ Stage 8 backlog from the Stage 2 review (do not lose): (a) `get_remote_address` 
 6. **`RunOut.error_message` is client-visible and sanitised** — never a storage key, server path, or traceback; the detail goes to the log.
 7. **Stage 8 backlog:** a crashed worker can leave a run in `running`; the reuse window bounds the damage but there is still no retry/cancel route. Add an `updated_at` column plus a sweep that re-queues stale `running` runs.
 8. Datetimes serialise naive on SQLite (dev) and offset-aware on Postgres (prod) — Stage 4 must not assume a trailing `Z`.
+
+## Stage 6 correction (binding, supersedes the Stage 6 block above)
+
+`suggest_recovered_waste` must NOT sum across dimensions. Correct definition: for EACH dimension, sum `max(0, waste_then − waste_now)` over the segments flagged in the baseline run **for that dimension**; the suggestion is the **maximum** of those per-dimension totals, quantized to 2dp. Rationale and precedent: `docs/PLAN.md` §1 #1 and `optimizer.headline_waste` — the same rupee appears in all three breakdowns, so summing over-bills roughly 3×. Worked example: one run improving `placement/audience_network` 52k→30k, `age_group/18-24` 45k→25k and `time_slot/night` 48k→28k (the same rupees) → per-dimension recoveries 22,000 / 20,000 / 20,000 → suggestion **22,000**, NOT 62,000.
+
+`confirm_invoice` recomputes with the invoice's **stored** `base_fee` (frozen at draft time) and the client's **current** `performance_fee_pct`. A drafted invoice's base fee must never change because an admin later edits the client's fee.
+
+`draft_invoice` rejects a new draft whose period **overlaps** an existing non-void invoice's period (`new_start <= existing_end AND new_end >= existing_start`), not merely one with identical dates — otherwise the same recovery can be billed twice by shifting a period by a day.
