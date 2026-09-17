@@ -91,7 +91,7 @@ set `review_status = approved` (Stage 6).
 
 ```bash
 cd backend && pytest
-cd frontend && npm run lint && npx tsc --noEmit && npm run build
+cd frontend && npm run lint && npx tsc --noEmit && npm test && npm run build
 ```
 
 ### Analysis pipeline (Stage 1)
@@ -110,3 +110,23 @@ All thresholds live in `backend/app/pipeline/config.py`.
 Exit codes:
 - `0`: Success
 - `2`: Validation failure (missing file, bad overrides, or invalid CSV format)
+
+### Client dashboard (Stage 4)
+
+```bash
+cd backend && .venv/Scripts/uvicorn app.main:app --port 8000   # terminal 1
+cd frontend && npm run dev                                     # terminal 2
+```
+
+Open http://localhost:3000. `/dashboard/*` is behind a server-side auth guard that
+forwards your cookies to `GET /api/auth/me`.
+
+```bash
+cd frontend
+npm test            # Vitest + React Testing Library
+npm run test:watch
+```
+
+The hero animation plays once on load and stops. Set
+**DevTools → Rendering → Emulate prefers-reduced-motion: reduce** to see the
+static SVG fallback instead.
