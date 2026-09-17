@@ -5,7 +5,7 @@ from slowapi.errors import RateLimitExceeded
 from app.core.errors import AppError
 from app.core.rate_limit import limiter, rate_limit_exceeded_handler
 from app.core.settings import get_settings
-from app.routers import auth, uploads
+from app.routers import analysis, auth, reports, uploads
 
 
 def create_app() -> FastAPI:
@@ -27,6 +27,8 @@ def create_app() -> FastAPI:
 
     application.include_router(auth.router, prefix="/api/auth")
     application.include_router(uploads.router)
+    application.include_router(analysis.router)
+    application.include_router(reports.router)
 
     return application
 
