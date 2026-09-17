@@ -14,6 +14,10 @@ export class ApiError extends Error {
 }
 
 /**
+ * CLIENT-ONLY. Relative paths need `document.location` to resolve against, so calling this
+ * from a React Server Component throws `Failed to parse URL`. Server components must fetch
+ * `${process.env.BACKEND_URL}${path}` directly and forward the request cookies by hand.
+ *
  * Browser-side API client. Paths are relative ("/api/..."), so the Next.js
  * rewrite keeps the auth cookies first-party (docs/PLAN.md §1 #8).
  * Never pass a client_id — the backend reads the tenant from the cookie.

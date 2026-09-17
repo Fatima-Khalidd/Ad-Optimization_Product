@@ -105,7 +105,9 @@ export interface UploadOut {
   date_range_start: string | null;
   date_range_end: string | null;
   status: UploadStatus;
-  validation_report: ValidationReport | null;
+  /** The backend column is a bare JSONB dict (never null), so it is NOT guaranteed to
+   *  carry `errors`/`warnings`. Narrow it with `extractIssues()` instead of indexing it. */
+  validation_report: Record<string, unknown>;
 }
 
 export type RunStatus = "queued" | "running" | "done" | "failed";
