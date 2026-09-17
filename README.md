@@ -73,7 +73,7 @@ curl -b cookies.txt -F "file=@august.csv" http://localhost:8000/api/uploads   # 
 curl -b cookies.txt -X POST http://localhost:8000/api/analyze/1               # 202 + run id
 curl -b cookies.txt http://localhost:8000/api/runs/1                          # queued|running|done|failed
 curl -b cookies.txt http://localhost:8000/api/reports/1                       # 404 until an admin approves
-curl -O http://localhost:8000/api/uploads/template.csv                        # blank template
+curl -b cookies.txt -O http://localhost:8000/api/uploads/template.csv         # blank template
 ```
 
 Uploaded CSVs are written through the storage interface (`STORAGE_ROOT`, default
