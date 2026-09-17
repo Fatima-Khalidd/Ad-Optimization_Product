@@ -65,6 +65,39 @@ def test_additional_traversal_and_windows_specific_keys_are_rejected(tmp_path: P
         LocalStorage(tmp_path).delete(key)
 
 
+@pytest.mark.parametrize(
+    "key",
+    [
+        "a\nb",
+        "a\x00b",
+        "a\tb",
+        "has space.csv",
+        "uploads/1/../x.csv",
+    ],
+)
+def test_keys_with_unsafe_characters_are_rejected(tmp_path: Path, key: str):
+    with pytest.raises(ValueError, match="invalid storage key"):
+        LocalStorage(tmp_path).save(key, b"x")
+
+    with pytest.raises(ValueError, match="invalid storage key"):
+        LocalStorage(tmp_path).read(key)
+
+    with pytest.raises(ValueError, match="invalid storage key"):
+        LocalStorage(tmp_path).delete(key)
+
+
+@pytest.mark.parametrize("key", ["uploads/7/abc.csv", "proofs/3/9f8e7d6c-1234.pdf"])
+def test_contract_key_shapes_round_trip(tmp_path: Path, key: str):
+    storage = LocalStorage(tmp_path)
+
+    assert storage.save(key, b"payload") == key
+    assert storage.read(key) == b"payload"
+
+    storage.delete(key)
+    with pytest.raises(FileNotFoundError):
+        storage.read(key)
+
+
 def test_path_for_returns_the_resolved_path_under_root(tmp_path: Path):
     storage = LocalStorage(tmp_path)
 

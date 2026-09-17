@@ -11,10 +11,16 @@ escape `root` -- via `..` segments, an absolute path, a drive letter, or a backs
 path separators would otherwise let a key smuggle a traversal past the POSIX-style checks).
 """
 
+import re
 from pathlib import Path, PurePosixPath
 from typing import Protocol, runtime_checkable
 
 from app.core.settings import get_settings
+
+# Key content is attacker-controlled (it lands in a DB column and is later handed straight to
+# the filesystem on Linux, where control characters, spaces and most unicode are legal in a
+# filename) -- so each segment is checked against this allowlist rather than a denylist.
+_SAFE_SEGMENT = re.compile(r"[A-Za-z0-9._-]+")
 
 
 @runtime_checkable
@@ -38,6 +44,8 @@ class LocalStorage:
 
         parts = key.split("/")
         if key.startswith("/") or "" in parts or ".." in parts or "." in parts:
+            raise ValueError(f"invalid storage key: {key!r}")
+        if not all(_SAFE_SEGMENT.fullmatch(part) for part in parts):
             raise ValueError(f"invalid storage key: {key!r}")
 
         root = self.root.resolve()
