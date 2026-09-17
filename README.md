@@ -130,3 +130,14 @@ npm run test:watch
 The hero animation plays once on load and stops. Set
 **DevTools → Rendering → Emulate prefers-reduced-motion: reduce** to see the
 static SVG fallback instead.
+
+### PDF report (Stage 5)
+
+`GET /api/reports/{run_id}/pdf` returns `application/pdf` as an attachment named
+`ad-waste-report-{run_id}.pdf`. It renders the same `ReportOut` the dashboard shows — cover
+summary, one section per dimension (chart + segment table), numbered recommendations, and a
+methodology footnote listing the run's saved config.
+
+It answers **404** unless the run is `status = done` **and** `review_status = approved`, and for
+another client's run. Rendering is ReportLab only (built-in Helvetica, `reportlab.graphics`
+charts): there are no fonts or image tools to install on a deploy host.
