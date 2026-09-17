@@ -69,6 +69,33 @@ def test_analyze_on_an_upload_that_failed_validation_is_422(client_a: TestClient
     assert response.status_code == 422
 
 
+def test_analyze_twice_in_a_row_does_not_duplicate_the_run(
+    client_a: TestClient, tmp_path: Path, db: Session, monkeypatch
+):
+    # A double-click on the dashboard's Analyze button must not queue a second run while
+    # the first is still in flight. TestClient runs BackgroundTasks synchronously inside
+    # .post(), so under a real (fast, in-memory-sqlite) execute_run the first run is
+    # already "done" by the time a naive second POST lands - that isn't the race a
+    # double-click reproduces. Stubbing out execute_run keeps the first run "queued" across
+    # both requests, which is the actual in-flight scenario create_run must dedupe; the
+    # true post-execution path is covered separately by
+    # test_analyze_returns_202_and_the_run_reaches_done.
+    monkeypatch.setattr("app.routers.analysis.execute_run", lambda run_id: None)
+    upload_id = _upload(client_a, _sample_bytes(tmp_path))
+
+    first = client_a.post(f"/api/analyze/{upload_id}")
+    second = client_a.post(f"/api/analyze/{upload_id}")
+
+    assert first.status_code == 202
+    assert second.status_code == 202
+    assert first.json()["id"] == second.json()["id"]
+
+    db.expire_all()
+    rows = db.scalars(select(AnalysisRun).where(AnalysisRun.upload_id == upload_id)).all()
+    assert len(rows) == 1
+    assert rows[0].status == "queued"
+
+
 def test_analyze_on_another_tenants_upload_is_404(
     client_a: TestClient, client_b: TestClient, tmp_path: Path
 ):

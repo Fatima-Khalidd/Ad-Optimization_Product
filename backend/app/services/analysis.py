@@ -55,6 +55,14 @@ def to_money_or_none(value: float | Decimal | None) -> Decimal | None:
 
 
 def create_run(session: Session, client: Client, upload_id: int) -> AnalysisRun:
+    """Idempotent for an in-flight run: a second call for the same client/upload while a
+
+    prior run is still `queued` or `running` returns that SAME run unchanged, rather than
+    queuing a duplicate - a double-click on the dashboard's Analyze button must not double
+    the persisted WasteReport/SegmentMetric/Recommendation rows or give the Stage 6 admin
+    two identical runs to approve. Once the prior run is `done` or `failed`, a fresh call
+    starts a new run as before (re-analysis after a config change is legitimate).
+    """
     upload = get_upload(session, client.id, upload_id)  # 404 for another tenant
     if upload.status != "validated":
         raise InvalidUploadError(
@@ -63,6 +71,17 @@ def create_run(session: Session, client: Client, upload_id: int) -> AnalysisRun:
                 "upload_id": upload.id,
             }
         )
+    in_flight = session.scalars(
+        select(AnalysisRun)
+        .where(
+            AnalysisRun.client_id == client.id,
+            AnalysisRun.upload_id == upload.id,
+            AnalysisRun.status.in_(("queued", "running")),
+        )
+        .order_by(AnalysisRun.id.desc())
+    ).first()
+    if in_flight is not None:
+        return in_flight
     # An invalid override dict (e.g. a non-numeric waste_multiplier) makes
     # PipelineConfig.from_overrides raise ValueError, which propagates uncaught: the
     # caller (the router) sees a plain 500 unless it wraps this, since a bad override is a

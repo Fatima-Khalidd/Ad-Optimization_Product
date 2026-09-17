@@ -97,6 +97,35 @@ def test_create_run_on_another_tenants_upload_is_not_found(
         create_run(session, client_row, theirs.id)
 
 
+def test_create_run_reuses_an_in_flight_run_for_the_same_upload(
+    session: Session, client_row: Client
+):
+    upload = create_upload(session, client_row, "aug.csv", GOOD)
+
+    first = create_run(session, client_row, upload.id)
+    second = create_run(session, client_row, upload.id)
+
+    assert second.id == first.id
+    rows = session.scalars(select(AnalysisRun).where(AnalysisRun.upload_id == upload.id)).all()
+    assert len(rows) == 1
+
+
+def test_create_run_starts_a_fresh_run_once_the_previous_one_is_done(
+    session: Session, client_row: Client
+):
+    upload = create_upload(session, client_row, "aug.csv", GOOD)
+
+    first = create_run(session, client_row, upload.id)
+    first.status = "done"
+    session.commit()
+
+    second = create_run(session, client_row, upload.id)
+
+    assert second.id != first.id
+    rows = session.scalars(select(AnalysisRun).where(AnalysisRun.upload_id == upload.id)).all()
+    assert len(rows) == 2
+
+
 def test_get_run_is_tenant_scoped(session: Session, client_row: Client, other_client_row: Client):
     theirs_upload = create_upload(session, other_client_row, "theirs.csv", GOOD)
     theirs_run = create_run(session, other_client_row, theirs_upload.id)
