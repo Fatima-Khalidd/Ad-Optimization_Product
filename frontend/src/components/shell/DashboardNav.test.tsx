@@ -13,14 +13,13 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("DashboardNav", () => {
-  it("renders exactly the Report and Upload links, with no link to /dashboard/billing", () => {
+  it("renders exactly the Report, Upload and Billing links", () => {
     usePathname.mockReturnValue("/dashboard");
     render(<DashboardNav businessName="Acme" />);
 
     const links = screen.getAllByRole("link").filter((link) => link.textContent !== "Acme");
-    expect(links.map((link) => link.textContent)).toEqual(["Report", "Upload"]);
-    expect(screen.queryByRole("link", { name: "Billing" })).not.toBeInTheDocument();
-    links.forEach((link) => expect(link).not.toHaveAttribute("href", "/dashboard/billing"));
+    expect(links.map((link) => link.textContent)).toEqual(["Report", "Upload", "Billing"]);
+    expect(screen.getByRole("link", { name: "Billing" })).toHaveAttribute("href", "/dashboard/billing");
   });
 
   it("marks the active link with aria-current='page'", () => {
