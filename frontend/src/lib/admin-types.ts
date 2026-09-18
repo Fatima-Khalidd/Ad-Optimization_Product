@@ -48,6 +48,7 @@ export type AdminInvoice = {
   id: number;
   invoice_number: string;
   client_id: number;
+  business_name: string;
   period_start: string;
   period_end: string;
   due_date: string;

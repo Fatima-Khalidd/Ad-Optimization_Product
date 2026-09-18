@@ -13,10 +13,23 @@ export default function InvoiceForm({
   clients: AdminClient[];
   onCreated: (invoice: AdminInvoice) => void;
 }) {
-  const [clientId, setClientId] = useState(String(clients[0]?.id ?? ""));
+  // F1: `clientId` only tracks an admin's deliberate choice; it starts (and can stay)
+  // empty. On first render the parent's client fetch has not resolved, so `clients` is
+  // `[]` — a plain `useState(String(clients[0]?.id ?? ""))` initialiser never re-runs
+  // once the list arrives afterward, leaving the select (and Number("") === 0 in the
+  // POST body) stuck at nothing. Deriving the effective id on every render instead means
+  // it always reflects the latest `clients` prop without an effect/setState round trip,
+  // and never overwrites a selection the admin already made.
+  const [clientId, setClientId] = useState("");
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  const effectiveClientId =
+    clientId !== "" && clients.some((c) => String(c.id) === clientId)
+      ? clientId
+      : String(clients[0]?.id ?? "");
+  const hasSelectableClient = effectiveClientId !== "";
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -26,7 +39,7 @@ export default function InvoiceForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          client_id: Number(clientId),
+          client_id: Number(effectiveClientId),
           period_start: periodStart,
           period_end: periodEnd,
         }),
@@ -43,7 +56,7 @@ export default function InvoiceForm({
         <span className="block text-xs uppercase tracking-wide text-slate">Client</span>
         <select
           aria-label="Client"
-          value={clientId}
+          value={effectiveClientId}
           onChange={(e) => setClientId(e.target.value)}
           className="mt-1 border border-white/15 bg-surface px-2 py-1"
         >
@@ -74,7 +87,11 @@ export default function InvoiceForm({
           className="mt-1 border border-white/15 bg-surface px-2 py-1"
         />
       </label>
-      <button type="submit" className="border border-teal px-3 py-1 text-teal">
+      <button
+        type="submit"
+        disabled={!hasSelectableClient}
+        className="border border-teal px-3 py-1 text-teal disabled:cursor-not-allowed disabled:opacity-50"
+      >
         Draft invoice
       </button>
       {error && (

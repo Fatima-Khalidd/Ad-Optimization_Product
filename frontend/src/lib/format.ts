@@ -34,6 +34,28 @@ export function formatPKR(n: Amount): string {
 }
 
 /**
+ * Exact rupees and paisa, two decimal places, with thousands separators:
+ * formatPKRExact(4600.5) -> "Rs. 4,600.50"; formatPKRExact("4600.50") -> same.
+ *
+ * Same parsing and "—" rules as formatPKR, but never rounds — for the invoices screen,
+ * where an admin has to defend the arithmetic (base fee + performance fee = total) to a
+ * client, and independently-rounded whole-rupee figures can visibly fail to add up.
+ */
+export function formatPKRExact(n: Amount): string {
+  if (n === null || n === undefined) return DASH;
+  if (typeof n === "string") {
+    if (n.trim().length === 0) return DASH;
+    const parsed = Number(n);
+    if (!Number.isFinite(parsed)) return DASH;
+    return formatPKRExact(parsed);
+  }
+  if (!Number.isFinite(n)) return "Rs. 0.00";
+  const sign = n < 0 ? "-" : "";
+  const [whole, fraction] = Math.abs(n).toFixed(2).split(".");
+  return `${sign}Rs. ${Number(whole).toLocaleString("en-US")}.${fraction}`;
+}
+
+/**
  * One decimal place. The input is already a percentage, not a fraction —
  * ReportOut.recovery_pct is headline_waste / total_spend * 100, delivered
  * as a decimal string (e.g. "16.28" -> "16.3%").

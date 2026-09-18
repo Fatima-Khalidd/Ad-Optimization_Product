@@ -399,3 +399,138 @@ def test_void_rejects_a_paid_invoice(session):
 
     with pytest.raises(ConflictError, match="invoice INV-2026-0001 is paid"):
         billing.void_invoice(session, actor, invoice.id, note="too late")
+
+
+# --- F3: voiding an invoice a client has already acted on ----------------------------
+
+
+def test_void_rejects_an_invoice_with_a_payment_submitted(session):
+    actor = make_admin(session)
+    client = _client_with_23k_recovered(session)
+    session.commit()
+    invoice = billing.draft_invoice(session, actor, client.id, PERIOD_START, PERIOD_END)
+    billing.confirm_invoice(session, actor, invoice.id, Decimal("23000"))
+    billing.issue_invoice(session, actor, invoice.id, date(2026, 9, 20))
+    invoice.status = "payment_submitted"
+    session.commit()
+
+    with pytest.raises(ConflictError, match="payment awaiting review"):
+        billing.void_invoice(session, actor, invoice.id, note="too late")
+
+
+def test_void_rejects_an_invoice_with_a_partial_payment_recorded(session):
+    """Even if status somehow drifts, amount_paid > 0 alone must block the void."""
+    actor = make_admin(session)
+    client = _client_with_23k_recovered(session)
+    session.commit()
+    invoice = billing.draft_invoice(session, actor, client.id, PERIOD_START, PERIOD_END)
+    billing.confirm_invoice(session, actor, invoice.id, Decimal("23000"))
+    billing.issue_invoice(session, actor, invoice.id, date(2026, 9, 20))
+    invoice.amount_paid = Decimal("5000.00")
+    session.commit()
+
+    with pytest.raises(ConflictError, match="payment awaiting review"):
+        billing.void_invoice(session, actor, invoice.id, note="too late")
+
+
+def test_void_allows_a_draft_invoice(session):
+    actor = make_admin(session)
+    client = _client_with_23k_recovered(session)
+    session.commit()
+    invoice = billing.draft_invoice(session, actor, client.id, PERIOD_START, PERIOD_END)
+
+    voided = billing.void_invoice(session, actor, invoice.id, note="wrong client")
+    assert voided.status == "void"
+
+
+def test_void_allows_a_plain_issued_invoice(session):
+    actor = make_admin(session)
+    client = _client_with_23k_recovered(session)
+    session.commit()
+    invoice = billing.draft_invoice(session, actor, client.id, PERIOD_START, PERIOD_END)
+    billing.confirm_invoice(session, actor, invoice.id, Decimal("23000"))
+    billing.issue_invoice(session, actor, invoice.id, date(2026, 9, 20))
+
+    voided = billing.void_invoice(session, actor, invoice.id, note="client cancelled")
+    assert voided.status == "void"
+
+
+# --- F7(b): the audit-rollback property, for the invoice paths -----------------------
+
+
+def test_a_failed_audit_write_rolls_back_the_draft(session, monkeypatch):
+    actor = make_admin(session)
+    client = _client_with_23k_recovered(session)
+    session.commit()
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("audit backend is down")
+
+    monkeypatch.setattr(billing.audit, "record", _boom)
+
+    with pytest.raises(RuntimeError, match="audit backend is down"):
+        billing.draft_invoice(session, actor, client.id, PERIOD_START, PERIOD_END)
+
+    session.rollback()
+    session.expire_all()
+    assert billing.list_invoices(session, client_id=client.id) == []
+
+
+def test_a_failed_audit_write_rolls_back_the_confirm(session, monkeypatch):
+    actor = make_admin(session)
+    client = _client_with_23k_recovered(session)
+    session.commit()
+    invoice = billing.draft_invoice(session, actor, client.id, PERIOD_START, PERIOD_END)
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("audit backend is down")
+
+    monkeypatch.setattr(billing.audit, "record", _boom)
+
+    with pytest.raises(RuntimeError, match="audit backend is down"):
+        billing.confirm_invoice(session, actor, invoice.id, Decimal("23000"))
+
+    session.rollback()
+    session.expire_all()
+    reloaded = billing.get_invoice(session, invoice.id)
+    assert reloaded.confirmed_by is None
+    assert reloaded.confirmed_recovered_waste == Decimal("0.00")
+
+
+def test_a_failed_audit_write_rolls_back_the_issue(session, monkeypatch):
+    actor = make_admin(session)
+    client = _client_with_23k_recovered(session)
+    session.commit()
+    invoice = billing.draft_invoice(session, actor, client.id, PERIOD_START, PERIOD_END)
+    billing.confirm_invoice(session, actor, invoice.id, Decimal("23000"))
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("audit backend is down")
+
+    monkeypatch.setattr(billing.audit, "record", _boom)
+
+    with pytest.raises(RuntimeError, match="audit backend is down"):
+        billing.issue_invoice(session, actor, invoice.id, date(2026, 9, 20))
+
+    session.rollback()
+    session.expire_all()
+    assert billing.get_invoice(session, invoice.id).status == "draft"
+
+
+def test_a_failed_audit_write_rolls_back_the_void(session, monkeypatch):
+    actor = make_admin(session)
+    client = _client_with_23k_recovered(session)
+    session.commit()
+    invoice = billing.draft_invoice(session, actor, client.id, PERIOD_START, PERIOD_END)
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("audit backend is down")
+
+    monkeypatch.setattr(billing.audit, "record", _boom)
+
+    with pytest.raises(RuntimeError, match="audit backend is down"):
+        billing.void_invoice(session, actor, invoice.id, note="should not stick")
+
+    session.rollback()
+    session.expire_all()
+    assert billing.get_invoice(session, invoice.id).status == "draft"

@@ -96,16 +96,29 @@ def list_invoices(
     invoice_status: InvoiceStatus | None = Query(default=None, alias="status"),
     session: Session = Depends(get_session),
 ):
-    return billing_service.list_invoices(session, client_id=client_id, status=invoice_status)
+    invoices = billing_service.list_invoices(session, client_id=client_id, status=invoice_status)
+    # Same shape as the runs queue: one extra query for every distinct client behind these
+    # invoices, keyed by id, instead of a session.get() per row (no N+1).
+    client_ids = {invoice.client_id for invoice in invoices}
+    clients_by_id = {}
+    if client_ids:
+        clients_by_id = {
+            c.id: c for c in session.scalars(select(Client).where(Client.id.in_(client_ids)))
+        }
+    return [
+        billing_service.serialize_invoice(session, invoice, clients_by_id.get(invoice.client_id))
+        for invoice in invoices
+    ]
 
 
 @router.post("/invoices", response_model=AdminInvoiceOut, status_code=status.HTTP_201_CREATED)
 def draft_invoice(
     body: InvoiceDraftIn, actor: CurrentAdmin, session: Session = Depends(get_session)
 ):
-    return billing_service.draft_invoice(
+    invoice = billing_service.draft_invoice(
         session, actor, body.client_id, body.period_start, body.period_end
     )
+    return billing_service.serialize_invoice(session, invoice)
 
 
 @router.post("/invoices/{invoice_id}/confirm", response_model=AdminInvoiceOut)
@@ -115,9 +128,10 @@ def confirm_invoice(
     actor: CurrentAdmin,
     session: Session = Depends(get_session),
 ):
-    return billing_service.confirm_invoice(
+    invoice = billing_service.confirm_invoice(
         session, actor, invoice_id, body.confirmed_recovered_waste
     )
+    return billing_service.serialize_invoice(session, invoice)
 
 
 @router.post("/invoices/{invoice_id}/issue", response_model=AdminInvoiceOut)
@@ -127,7 +141,8 @@ def issue_invoice(
     actor: CurrentAdmin,
     session: Session = Depends(get_session),
 ):
-    return billing_service.issue_invoice(session, actor, invoice_id, body.due_date)
+    invoice = billing_service.issue_invoice(session, actor, invoice_id, body.due_date)
+    return billing_service.serialize_invoice(session, invoice)
 
 
 @router.post("/invoices/{invoice_id}/void", response_model=AdminInvoiceOut)
@@ -137,7 +152,8 @@ def void_invoice(
     actor: CurrentAdmin,
     session: Session = Depends(get_session),
 ):
-    return billing_service.void_invoice(session, actor, invoice_id, body.note)
+    invoice = billing_service.void_invoice(session, actor, invoice_id, body.note)
+    return billing_service.serialize_invoice(session, invoice)
 
 
 @router.get("/audit-log", response_model=list[AuditLogOut])

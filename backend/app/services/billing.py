@@ -134,6 +134,35 @@ def get_invoice(session: Session, invoice_id: int) -> Invoice:
     return invoice
 
 
+def serialize_invoice(session: Session, invoice: Invoice, client: Client | None = None) -> dict:
+    """An invoice plus its client's business_name (F6), so the admin screen can tell rows
+    for different clients apart without an N+1 lookup. `client` lets a caller serializing
+    many invoices (the list endpoint) pass in a row it already fetched in bulk, mirroring
+    admin.serialize_run's shape for the runs queue.
+    """
+    if client is None:
+        client = session.get(Client, invoice.client_id)
+    return {
+        "id": invoice.id,
+        "invoice_number": invoice.invoice_number,
+        "client_id": invoice.client_id,
+        "business_name": client.business_name if client else "",
+        "period_start": invoice.period_start,
+        "period_end": invoice.period_end,
+        "due_date": invoice.due_date,
+        "base_fee": invoice.base_fee,
+        "suggested_recovered_waste": invoice.suggested_recovered_waste,
+        "confirmed_recovered_waste": invoice.confirmed_recovered_waste,
+        "performance_fee": invoice.performance_fee,
+        "total": invoice.total,
+        "amount_paid": invoice.amount_paid,
+        "status": invoice.status,
+        "confirmed_by": invoice.confirmed_by,
+        "issued_at": invoice.issued_at,
+        "created_at": invoice.created_at,
+    }
+
+
 def list_invoices(
     session: Session, client_id: int | None = None, status: str | None = None
 ) -> list[Invoice]:
@@ -323,6 +352,15 @@ def void_invoice(
     invoice = get_invoice(session, invoice_id)
     if invoice.status in ("paid", "void"):
         raise ConflictError(f"invoice {invoice.invoice_number} is {invoice.status}")
+    # F3: a client that has already submitted a transaction reference (Stage 7) must not
+    # have that submission orphaned by a silent void — reject the payment first instead.
+    # amount_paid > 0 is checked independently of status so a partial payment recorded
+    # some other way also blocks the void, not just the payment_submitted status value.
+    if invoice.status == "payment_submitted" or invoice.amount_paid > 0:
+        raise ConflictError(
+            f"invoice {invoice.invoice_number} has a payment awaiting review — "
+            "reject the payment first"
+        )
 
     before = audit.snapshot(invoice, INVOICE_AUDIT_FIELDS)
     invoice.status = "void"

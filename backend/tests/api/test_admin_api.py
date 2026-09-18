@@ -280,3 +280,35 @@ def test_a_negative_confirmed_amount_is_rejected_by_the_schema(api, db):
     )
 
     assert response.status_code == 422
+
+
+def test_an_absurdly_large_confirmed_amount_is_422_not_a_db_error(api, db):
+    """F5: NUMERIC(14,2) allows 12 integer digits; confirmed_recovered_waste alone feeding
+    into total (base_fee + performance_fee) must stay well inside that headroom, so the
+    schema bound should reject before the value ever reaches the database."""
+    admin = make_admin(db)
+    client = make_client(db)
+    db.commit()
+    login_as(api, admin)
+    invoice_id = api.post("/api/admin/invoices", json={"client_id": client.id, **AUGUST}).json()[
+        "id"
+    ]
+
+    response = api.post(
+        f"/api/admin/invoices/{invoice_id}/confirm",
+        json={"confirmed_recovered_waste": "99999999999999"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_invoice_rows_carry_the_clients_business_name(api, db):
+    admin = make_admin(db)
+    client = make_client(db)
+    db.commit()
+    login_as(api, admin)
+    draft = api.post("/api/admin/invoices", json={"client_id": client.id, **AUGUST})
+
+    assert draft.json()["business_name"] == client.business_name
+    listed = api.get("/api/admin/invoices").json()
+    assert listed[0]["business_name"] == client.business_name

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatPKR, formatPct, humanizeSegment, wasteShare } from "./format";
+import { formatPKR, formatPKRExact, formatPct, humanizeSegment, wasteShare } from "./format";
 
 describe("formatPKR", () => {
   it("groups thousands and prefixes the rupee label", () => {
@@ -41,6 +41,43 @@ describe("formatPKR", () => {
     expect(formatPKR(undefined)).toBe("—");
     expect(formatPKR("not-a-number")).toBe("—");
     expect(formatPKR("")).toBe("—");
+  });
+});
+
+describe("formatPKRExact", () => {
+  it("renders exactly two decimals with thousands separators, from a number", () => {
+    expect(formatPKRExact(4600.5)).toBe("Rs. 4,600.50");
+    expect(formatPKRExact(84000)).toBe("Rs. 84,000.00");
+    expect(formatPKRExact(800.2)).toBe("Rs. 800.20");
+  });
+
+  it("renders exactly two decimals with thousands separators, from a backend string", () => {
+    expect(formatPKRExact("4600.50")).toBe("Rs. 4,600.50");
+    expect(formatPKRExact("19600.00")).toBe("Rs. 19,600.00");
+  });
+
+  it("handles a value already at .00", () => {
+    expect(formatPKRExact("0.00")).toBe("Rs. 0.00");
+    expect(formatPKRExact(0)).toBe("Rs. 0.00");
+  });
+
+  it("handles a large value without rounding away the cents", () => {
+    expect(formatPKRExact("1234567.89")).toBe("Rs. 1,234,567.89");
+  });
+
+  it("handles negative amounts", () => {
+    expect(formatPKRExact(-2500.5)).toBe("-Rs. 2,500.50");
+  });
+
+  it("renders a dash for null, undefined and unparseable input", () => {
+    expect(formatPKRExact(null)).toBe("—");
+    expect(formatPKRExact(undefined)).toBe("—");
+    expect(formatPKRExact("not-a-number")).toBe("—");
+    expect(formatPKRExact("")).toBe("—");
+  });
+
+  it("never renders NaN", () => {
+    expect(formatPKRExact(Number.NaN)).toBe("Rs. 0.00");
   });
 });
 

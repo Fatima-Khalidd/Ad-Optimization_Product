@@ -38,8 +38,15 @@ def update_client(session: Session, actor: User, client_id: int, patch: ClientPa
         except (ValueError, TypeError, ArithmeticError) as exc:
             raise InvalidConfigError(str(exc)) from exc
 
+    # F4: the UI always posts all three fields, so a Save with unchanged values must not
+    # write a before == after audit row. Keep only the fields that actually differ from
+    # the client's current value.
+    changed = {field: value for field, value in data.items() if getattr(client, field) != value}
+    if not changed:
+        return client
+
     before = audit.snapshot(client, CLIENT_AUDIT_FIELDS)
-    for field, value in data.items():
+    for field, value in changed.items():
         setattr(client, field, value)
     session.flush()
     # NUMERIC(14,2) columns quantize on the DB round-trip, not on assignment — refresh so

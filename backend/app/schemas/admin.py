@@ -74,7 +74,12 @@ class InvoiceDraftIn(BaseModel):
 
 
 class ConfirmInvoiceIn(BaseModel):
-    confirmed_recovered_waste: Decimal = Field(ge=0)
+    # F5: NUMERIC(14,2) holds up to 12 integer digits, but `total` is base_fee +
+    # performance_fee and performance_fee is derived from this value (percentage of it,
+    # capped) — ten integer digits of headroom here keeps every downstream sum inside
+    # NUMERIC(14,2) with margin to spare, well past any real recovered-waste figure, and
+    # turns a fat-fingered digit into a clean 422 instead of a raw DB overflow error.
+    confirmed_recovered_waste: Decimal = Field(ge=0, le=Decimal("9999999999.99"))
 
 
 class IssueInvoiceIn(BaseModel):
@@ -91,6 +96,7 @@ class AdminInvoiceOut(BaseModel):
     id: int
     invoice_number: str
     client_id: int
+    business_name: str
     period_start: date
     period_end: date
     due_date: date

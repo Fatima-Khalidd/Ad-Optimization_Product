@@ -111,6 +111,51 @@ def test_client_patch_forbids_unknown_fields():
         ClientPatch(role="admin")
 
 
+def test_update_client_with_no_actual_change_writes_no_audit_row(session):
+    """F4: the UI always posts all three fields, so a Save with unchanged values must not
+    dilute the audit log with a before == after row."""
+    actor = make_admin(session)
+    client = make_client(
+        session,
+        base_fee=Decimal("15000"),
+        performance_fee_pct=Decimal("20"),
+        config_overrides={"min_spend": 9000},
+    )
+    session.commit()
+
+    updated = admin.update_client(
+        session,
+        actor,
+        client.id,
+        ClientPatch(
+            base_fee=Decimal("15000"),
+            performance_fee_pct=Decimal("20"),
+            config_overrides={"min_spend": 9000},
+        ),
+    )
+
+    assert updated.base_fee == Decimal("15000.00")
+    assert session.query(AuditLog).count() == 0
+
+
+def test_update_client_with_one_real_change_writes_exactly_one_row(session):
+    actor = make_admin(session)
+    client = make_client(session, base_fee=Decimal("15000"), performance_fee_pct=Decimal("20"))
+    session.commit()
+
+    admin.update_client(
+        session,
+        actor,
+        client.id,
+        ClientPatch(base_fee=Decimal("15000"), performance_fee_pct=Decimal("25")),
+    )
+
+    entries = session.query(AuditLog).all()
+    assert len(entries) == 1
+    assert entries[0].before["performance_fee_pct"] == "20.00"
+    assert entries[0].after["performance_fee_pct"] == "25.00"
+
+
 def test_a_failed_audit_write_rolls_back_the_fee_change(session, monkeypatch):
     """The audit row and the fee change share one transaction — if record() blows up,
     base_fee must still read the old value on the next query, not the new one."""

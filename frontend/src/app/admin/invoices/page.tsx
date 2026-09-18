@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import InvoiceForm from "@/components/admin/InvoiceForm";
 import { Table, Td, Th } from "@/components/admin/Table";
 import { apiFetch } from "@/lib/api";
-import { formatPKR } from "@/lib/format";
+import { formatPKRExact } from "@/lib/format";
 import type { AdminClient, AdminInvoice } from "@/lib/admin-types";
 
 export default function InvoicesPage() {
@@ -66,6 +66,7 @@ export default function InvoicesPage() {
         <thead>
           <tr>
             <Th>Number</Th>
+            <Th>Client</Th>
             <Th>Period</Th>
             <Th align="right">Base fee</Th>
             <Th align="right">Suggested (largest dimension)</Th>
@@ -80,14 +81,15 @@ export default function InvoicesPage() {
           {invoices.map((invoice) => (
             <tr key={invoice.id}>
               <Td>{invoice.invoice_number}</Td>
+              <Td>{invoice.business_name}</Td>
               <Td>
                 {invoice.period_start} → {invoice.period_end}
               </Td>
-              <Td align="right">{formatPKR(invoice.base_fee)}</Td>
-              <Td align="right">{formatPKR(invoice.suggested_recovered_waste)}</Td>
-              <Td align="right">{formatPKR(invoice.confirmed_recovered_waste)}</Td>
-              <Td align="right">{formatPKR(invoice.performance_fee)}</Td>
-              <Td align="right">{formatPKR(invoice.total)}</Td>
+              <Td align="right">{formatPKRExact(invoice.base_fee)}</Td>
+              <Td align="right">{formatPKRExact(invoice.suggested_recovered_waste)}</Td>
+              <Td align="right">{formatPKRExact(invoice.confirmed_recovered_waste)}</Td>
+              <Td align="right">{formatPKRExact(invoice.performance_fee)}</Td>
+              <Td align="right">{formatPKRExact(invoice.total)}</Td>
               <Td>{invoice.status}</Td>
               <Td>
                 {invoice.status === "draft" && (

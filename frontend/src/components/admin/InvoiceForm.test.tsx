@@ -24,6 +24,7 @@ const DRAFT: AdminInvoice = {
   id: 1,
   invoice_number: "INV-2026-0001",
   client_id: 3,
+  business_name: "Acme Traders",
   period_start: "2026-08-01",
   period_end: "2026-08-31",
   due_date: "2026-09-14",
@@ -78,5 +79,38 @@ describe("InvoiceForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Draft invoice" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("already covers");
+  });
+
+  // F1: clients arrives asynchronously in the parent, so the first render always sees
+  // `clients=[]`. The state initialiser only runs once, so without a fix the select (and
+  // the id it posts) stays stuck at "" — Number("") is 0 — even after the list arrives,
+  // unless the admin happens to touch the select themselves.
+  it("defaults to the first client once the list arrives, without the admin touching the select", async () => {
+    vi.mocked(apiFetch).mockResolvedValue(DRAFT);
+    const onCreated = vi.fn();
+    const { rerender } = render(<InvoiceForm clients={[]} onCreated={onCreated} />);
+
+    rerender(<InvoiceForm clients={CLIENTS} onCreated={onCreated} />);
+
+    fireEvent.change(screen.getByLabelText("Period start"), { target: { value: "2026-08-01" } });
+    fireEvent.change(screen.getByLabelText("Period end"), { target: { value: "2026-08-31" } });
+    fireEvent.click(screen.getByRole("button", { name: "Draft invoice" }));
+
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
+    expect(apiFetch).toHaveBeenCalledWith("/api/admin/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id: 3,
+        period_start: "2026-08-01",
+        period_end: "2026-08-31",
+      }),
+    });
+  });
+
+  it("disables the submit button while no client is selectable", () => {
+    render(<InvoiceForm clients={[]} onCreated={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Draft invoice" })).toBeDisabled();
   });
 });
