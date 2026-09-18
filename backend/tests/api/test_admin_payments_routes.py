@@ -119,7 +119,9 @@ def test_confirming_twice_is_409_and_an_unknown_payment_is_404(
     _, payment_id = _client_submits(db, client_a, client_a_row)
     admin_client.post(f"/api/admin/payments/{payment_id}/confirm", json={})
 
-    assert admin_client.post(f"/api/admin/payments/{payment_id}/confirm", json={}).status_code == 409
+    assert (
+        admin_client.post(f"/api/admin/payments/{payment_id}/confirm", json={}).status_code == 409
+    )
     assert admin_client.post("/api/admin/payments/999/confirm", json={}).status_code == 404
 
 
@@ -165,7 +167,10 @@ def test_payment_method_crud_over_http(db: Session, admin_client: TestClient):
     assert created.json()["is_active"] is True
 
     listed = admin_client.get("/api/admin/payment-methods").json()
-    assert [m["type"] for m in listed] == ["raast", "nayapay"]  # sort_order 1 then 5, inactive included
+    assert [m["type"] for m in listed] == [
+        "raast",
+        "nayapay",
+    ]  # sort_order 1 then 5, inactive included
 
     patched = admin_client.patch(
         f"/api/admin/payment-methods/{created.json()['id']}",

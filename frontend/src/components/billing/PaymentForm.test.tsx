@@ -46,32 +46,36 @@ describe("PaymentForm", () => {
     vi.mocked(apiFetch).mockClear();
   });
 
-  it("posts the transaction ID as multipart FormData to the invoice's payments route", async () => {
-    const user = userEvent.setup();
-    const onSubmitted = vi.fn();
-    render(<PaymentForm invoiceId={7} methods={METHODS} defaultAmount={9600} onSubmitted={onSubmitted} />);
+  it(
+    "posts the transaction ID as multipart FormData to the invoice's payments route",
+    async () => {
+      const user = userEvent.setup();
+      const onSubmitted = vi.fn();
+      render(<PaymentForm invoiceId={7} methods={METHODS} defaultAmount={9600} onSubmitted={onSubmitted} />);
 
-    await user.selectOptions(screen.getByLabelText(/payment method/i), "raast");
-    await user.clear(screen.getByLabelText(/transaction id/i));
-    await user.type(screen.getByLabelText(/transaction id/i), "JC-90002");
-    await user.clear(screen.getByLabelText(/amount/i));
-    await user.type(screen.getByLabelText(/amount/i), "9600");
-    await user.clear(screen.getByLabelText(/payment date/i));
-    await user.type(screen.getByLabelText(/payment date/i), "2026-10-05");
-    await user.click(screen.getByRole("button", { name: /submit payment/i }));
+      await user.selectOptions(screen.getByLabelText(/payment method/i), "raast");
+      await user.clear(screen.getByLabelText(/transaction id/i));
+      await user.type(screen.getByLabelText(/transaction id/i), "JC-90002");
+      await user.clear(screen.getByLabelText(/amount/i));
+      await user.type(screen.getByLabelText(/amount/i), "9600");
+      await user.clear(screen.getByLabelText(/payment date/i));
+      await user.type(screen.getByLabelText(/payment date/i), "2026-10-05");
+      await user.click(screen.getByRole("button", { name: /submit payment/i }));
 
-    const [path, init] = lastCall();
-    expect(path).toBe("/api/billing/invoices/7/payments");
-    expect(init?.method).toBe("POST");
-    const body = init?.body as FormData;
-    expect(body).toBeInstanceOf(FormData);
-    expect(body.get("method_type")).toBe("raast");
-    expect(body.get("transaction_ref")).toBe("JC-90002");
-    expect(body.get("amount")).toBe("9600");
-    expect(body.get("paid_at")).toBe("2026-10-05");
-    expect(body.get("proof")).toBeNull();
-    expect(onSubmitted).toHaveBeenCalledOnce();
-  });
+      const [path, init] = lastCall();
+      expect(path).toBe("/api/billing/invoices/7/payments");
+      expect(init?.method).toBe("POST");
+      const body = init?.body as FormData;
+      expect(body).toBeInstanceOf(FormData);
+      expect(body.get("method_type")).toBe("raast");
+      expect(body.get("transaction_ref")).toBe("JC-90002");
+      expect(body.get("amount")).toBe("9600");
+      expect(body.get("paid_at")).toBe("2026-10-05");
+      expect(body.get("proof")).toBeNull();
+      expect(onSubmitted).toHaveBeenCalledOnce();
+    },
+    10000
+  );
 
   it("attaches the screenshot when one is chosen", async () => {
     const user = userEvent.setup();

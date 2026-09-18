@@ -161,3 +161,25 @@ methodology footnote listing the run's saved config.
 It answers **404** unless the run is `status = done` **and** `review_status = approved`, and for
 another client's run. Rendering is ReportLab only (built-in Helvetica, `reportlab.graphics`
 charts): there are no fonts or image tools to install on a deploy host.
+
+## Billing (manual payments)
+
+Money is never moved by this app. Clients pay from their own wallet or bank app and report the
+transaction ID; **only an admin marks a payment as received**.
+
+1. `/admin/payment-methods` — add the JazzCash / Easypaisa / NayaPay / Raast / bank accounts once.
+   `sort_order` decides the order clients see; hiding an account keeps its history.
+2. `/admin/invoices` (Stage 6) — draft the month, confirm the recovered waste, issue the invoice.
+3. `/dashboard/billing` — the client sees the invoice and its PDF, pays, then submits the method,
+   transaction ID, amount, date and an optional screenshot (PNG/JPEG/PDF, max 5 MB).
+4. `/admin/payments` — the pending queue. Open the proof, then Confirm, or Reject with a reason the
+   client will read. A transaction ID can never be reused for the same method.
+5. Confirmed payments add up: the invoice becomes **paid** only once they cover the total. Partial
+   payments are normal and the balance stays visible on both sides.
+
+Invoices past their due date and not yet paid are flagged **Overdue** in the admin queue and on the
+client's billing page. Nothing is suspended automatically.
+
+Switching to an automatic gateway later (`docs/PLAN.md` §9) means writing one new class that
+implements `PaymentProvider` in `backend/app/payments/`, registering it in
+`backend/app/payments/__init__.py`, and setting `PAYMENT_PROVIDER` — no route or UI rewrite.

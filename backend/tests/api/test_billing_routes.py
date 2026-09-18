@@ -136,7 +136,9 @@ def test_a_reused_transaction_id_is_refused_with_409(
     client_a: TestClient, db: Session, client_a_row: Client
 ):
     invoice = make_invoice(db, client_a_row)
-    assert client_a.post(f"/api/billing/invoices/{invoice.id}/payments", data=FORM).status_code == 201
+    assert (
+        client_a.post(f"/api/billing/invoices/{invoice.id}/payments", data=FORM).status_code == 201
+    )
 
     response = client_a.post(f"/api/billing/invoices/{invoice.id}/payments", data=FORM)
 
@@ -197,7 +199,9 @@ def test_client_b_can_neither_see_nor_pay_client_as_invoice(
     assert client_b.get("/api/billing/invoices").json() == []
     assert client_b.get(f"/api/billing/invoices/{invoice.id}").status_code == 404
     assert client_b.get(f"/api/billing/invoices/{invoice.id}/pdf").status_code == 404
-    assert client_b.post(f"/api/billing/invoices/{invoice.id}/payments", data=FORM).status_code == 404
+    assert (
+        client_b.post(f"/api/billing/invoices/{invoice.id}/payments", data=FORM).status_code == 404
+    )
     db.expire_all()
     assert db.scalars(select(Payment)).all() == []
 
