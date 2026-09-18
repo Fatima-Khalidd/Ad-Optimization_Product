@@ -118,6 +118,80 @@ def test_confirm_and_reject_each_write_one_audit_entry(db):
     assert entry.after["invoice_amount_paid"] == "10000.00"
 
 
+def test_confirming_one_of_two_pending_payments_keeps_the_invoice_awaiting_review(db):
+    admin = make_admin(db)
+    client = make_client(db, "owner-a@example.com", "Karachi Kicks")
+    invoice = make_invoice(db, client)
+    first = _submit(db, client, invoice, "JC-90001", "10000.00")
+    _submit(db, client, invoice, "JC-90002", "5000.00")
+
+    payments_service.confirm_payment(db, admin, first.id, None)
+
+    reloaded = db.get(Invoice, invoice.id)
+    assert reloaded.amount_paid == Decimal("10000.00")
+    assert reloaded.status == "payment_submitted"  # a second claim is still under review
+
+
+def test_confirming_the_only_pending_payment_reports_issued_when_still_unpaid(db):
+    admin = make_admin(db)
+    client = make_client(db, "owner-a@example.com", "Karachi Kicks")
+    invoice = make_invoice(db, client)
+    payment = _submit(db, client, invoice, "JC-90001", "10000.00")
+
+    payments_service.confirm_payment(db, admin, payment.id, None)
+
+    reloaded = db.get(Invoice, invoice.id)
+    assert reloaded.amount_paid == Decimal("10000.00")
+    assert reloaded.status == "issued"  # nothing else is pending
+
+
+def test_confirming_the_last_pending_payment_marks_the_invoice_paid_even_if_others_were_pending(db):
+    admin = make_admin(db)
+    client = make_client(db, "owner-a@example.com", "Karachi Kicks")
+    invoice = make_invoice(db, client)
+    first = _submit(db, client, invoice, "JC-90001", "10000.00")
+    second = _submit(db, client, invoice, "JC-90002", "9600.00")
+    payments_service.confirm_payment(db, admin, first.id, None)
+
+    payments_service.confirm_payment(db, admin, second.id, None)
+
+    reloaded = db.get(Invoice, invoice.id)
+    assert reloaded.amount_paid == Decimal("19600.00")
+    assert reloaded.status == "paid"  # fully paid overrides any other pending payments
+
+
+def test_confirming_a_payment_against_a_void_invoice_is_refused(db):
+    admin = make_admin(db)
+    client = make_client(db, "owner-a@example.com", "Karachi Kicks")
+    invoice = make_invoice(db, client)
+    payment = _submit(db, client, invoice)
+    invoice.status = "void"
+    db.commit()
+
+    with pytest.raises(ConflictError) as exc:
+        payments_service.confirm_payment(db, admin, payment.id, None)
+    assert exc.value.status_code == 409
+
+    db.refresh(payment)
+    assert payment.status == "pending"
+
+
+def test_confirming_a_payment_against_a_draft_invoice_is_refused(db):
+    admin = make_admin(db)
+    client = make_client(db, "owner-a@example.com", "Karachi Kicks")
+    invoice = make_invoice(db, client)
+    payment = _submit(db, client, invoice)
+    invoice.status = "draft"
+    db.commit()
+
+    with pytest.raises(ConflictError) as exc:
+        payments_service.confirm_payment(db, admin, payment.id, None)
+    assert exc.value.status_code == 409
+
+    db.refresh(payment)
+    assert payment.status == "pending"
+
+
 def test_a_payment_can_only_be_reviewed_once(db):
     admin = make_admin(db)
     client = make_client(db, "owner-a@example.com", "Karachi Kicks")

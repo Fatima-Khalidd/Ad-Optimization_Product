@@ -101,6 +101,19 @@ describe("PaymentForm", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(/transaction id/i);
   });
 
+  it("rejects an amount with more than 2 decimal places before submitting, without calling the API", async () => {
+    const user = userEvent.setup();
+    render(<PaymentForm invoiceId={7} methods={METHODS} defaultAmount={9600} onSubmitted={vi.fn()} />);
+
+    await user.type(screen.getByLabelText(/transaction id/i), "JC-90006");
+    await user.clear(screen.getByLabelText(/amount/i));
+    await user.type(screen.getByLabelText(/amount/i), "100.555");
+    await user.click(screen.getByRole("button", { name: /submit payment/i }));
+
+    expect(apiFetch).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(/2 decimal/i);
+  });
+
   it("shows the server's reason when the transaction id was already used", async () => {
     const user = userEvent.setup();
     vi.mocked(apiFetch).mockRejectedValueOnce(

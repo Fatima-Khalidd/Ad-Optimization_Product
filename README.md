@@ -173,7 +173,8 @@ transaction ID; **only an admin marks a payment as received**.
 3. `/dashboard/billing` — the client sees the invoice and its PDF, pays, then submits the method,
    transaction ID, amount, date and an optional screenshot (PNG/JPEG/PDF, max 5 MB).
 4. `/admin/payments` — the pending queue. Open the proof, then Confirm, or Reject with a reason the
-   client will read. A transaction ID can never be reused for the same method.
+   client will read. A transaction ID can never be reused for the same method. Only an admin can
+   fetch a payment's proof file; a client cannot download their own upload back.
 5. Confirmed payments add up: the invoice becomes **paid** only once they cover the total. Partial
    payments are normal and the balance stays visible on both sides.
 

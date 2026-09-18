@@ -165,6 +165,10 @@ def confirm_payment(
 ) -> Payment:
     payment = _get_payment(session, payment_id)
     invoice = session.get(Invoice, payment.invoice_id)
+    if invoice.status in ("void", "draft"):
+        raise ConflictError(
+            f"invoice {invoice.invoice_number} is {invoice.status} and cannot take payments"
+        )
     before = _snapshot(payment, invoice)
 
     payment.status = "confirmed"
@@ -172,7 +176,19 @@ def confirm_payment(
     payment.reviewed_at = utcnow()
     payment.review_note = note
     invoice.amount_paid = Decimal(invoice.amount_paid) + Decimal(payment.amount)
-    invoice.status = "paid" if invoice.amount_paid >= invoice.total else "issued"
+    session.flush()
+
+    if invoice.amount_paid >= invoice.total:
+        invoice.status = "paid"
+    else:
+        # Another payment may still be awaiting review — don't report "issued" (unpaid,
+        # nothing pending) while a claim against this same balance is still under review.
+        still_pending = session.scalar(
+            select(func.count())
+            .select_from(Payment)
+            .where(Payment.invoice_id == invoice.id, Payment.status == "pending")
+        )
+        invoice.status = "payment_submitted" if still_pending else "issued"
 
     audit.record(
         session,

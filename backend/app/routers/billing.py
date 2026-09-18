@@ -7,11 +7,13 @@ from datetime import date
 from decimal import Decimal
 from typing import Annotated
 
+import pydantic
 from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.db import get_session
 from app.core.deps import CurrentClient
+from app.core.errors import ValidationError
 from app.core.settings import get_settings
 from app.payments import get_payment_provider
 from app.schemas.billing import (
@@ -69,7 +71,7 @@ async def submit_payment(
     session: SessionDep,
     method_type: Annotated[MethodType, Form()],
     transaction_ref: Annotated[str, Form(min_length=1, max_length=80)],
-    amount: Annotated[Decimal, Form(gt=0)],
+    amount: Annotated[Decimal, Form(gt=0, max_digits=14, decimal_places=2)],
     paid_at: Annotated[date, Form()],
     proof: Annotated[UploadFile | None, File()] = None,
 ):
@@ -77,10 +79,18 @@ async def submit_payment(
     invoice = payments_service.get_invoice(session, client.id, invoice_id)
     payments_service.ensure_payable(invoice)
 
-    # Every field is already validated by the Form() annotations above, so this never raises.
-    submission = PaymentSubmission(
-        method_type=method_type, transaction_ref=transaction_ref, amount=amount, paid_at=paid_at
-    )
+    # The Form() annotations above mirror PaymentSubmission's own constraints (including
+    # amount's max_digits/decimal_places), so this should not raise. It is wrapped anyway so the
+    # two schemas can never again drift into a bare pydantic.ValidationError escaping as a 500.
+    try:
+        submission = PaymentSubmission(
+            method_type=method_type,
+            transaction_ref=transaction_ref,
+            amount=amount,
+            paid_at=paid_at,
+        )
+    except pydantic.ValidationError as exc:
+        raise ValidationError(f"invalid payment submission: {exc}") from exc
 
     # Proof is validated (413/415) BEFORE the provider writes anything to the DB or storage, so
     # a rejected upload never leaves a half-made payment behind.

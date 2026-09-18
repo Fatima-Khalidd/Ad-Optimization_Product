@@ -1,7 +1,7 @@
 "use client";
 
 import StatusPill from "@/components/billing/StatusPill";
-import { isOverdue } from "@/lib/billing";
+import { clampedAmountDue, isOverdue, overpaidBy } from "@/lib/billing";
 import { formatPKRExact } from "@/lib/format";
 import type { Invoice } from "@/lib/types";
 
@@ -29,31 +29,39 @@ export default function InvoiceTable({ invoices, selectedId, onSelect }: Props) 
         </tr>
       </thead>
       <tbody>
-        {invoices.map((invoice) => (
-          <tr
-            key={invoice.id}
-            onClick={() => onSelect(invoice.id)}
-            className={`cursor-pointer border-b border-slate/15 hover:bg-surface ${
-              invoice.id === selectedId ? "bg-surface" : ""
-            }`}
-          >
-            <td className="py-2 numeral">{invoice.invoice_number}</td>
-            <td className="py-2">
-              {invoice.period_start} → {invoice.period_end}
-            </td>
-            <td className="py-2">
-              {invoice.due_date}
-              {isOverdue(invoice, today) ? (
-                <span className="ml-2 rounded-full bg-coral/20 px-2 py-0.5 text-xs text-coral">Overdue</span>
-              ) : null}
-            </td>
-            <td className="py-2 text-right numeral">{formatPKRExact(invoice.total)}</td>
-            <td className="py-2 text-right numeral">{formatPKRExact(invoice.amount_due)}</td>
-            <td className="py-2">
-              <StatusPill status={invoice.status} />
-            </td>
-          </tr>
-        ))}
+        {invoices.map((invoice) => {
+          const overpaid = overpaidBy(invoice);
+          return (
+            <tr
+              key={invoice.id}
+              onClick={() => onSelect(invoice.id)}
+              className={`cursor-pointer border-b border-slate/15 hover:bg-surface ${
+                invoice.id === selectedId ? "bg-surface" : ""
+              }`}
+            >
+              <td className="py-2 numeral">{invoice.invoice_number}</td>
+              <td className="py-2">
+                {invoice.period_start} → {invoice.period_end}
+              </td>
+              <td className="py-2">
+                {invoice.due_date}
+                {isOverdue(invoice, today) ? (
+                  <span className="ml-2 rounded-full bg-coral/20 px-2 py-0.5 text-xs text-coral">Overdue</span>
+                ) : null}
+              </td>
+              <td className="py-2 text-right numeral">{formatPKRExact(invoice.total)}</td>
+              <td className="py-2 text-right numeral">
+                {formatPKRExact(clampedAmountDue(invoice))}
+                {overpaid ? (
+                  <span className="block text-xs text-teal">Overpaid by {formatPKRExact(overpaid)}</span>
+                ) : null}
+              </td>
+              <td className="py-2">
+                <StatusPill status={invoice.status} />
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );

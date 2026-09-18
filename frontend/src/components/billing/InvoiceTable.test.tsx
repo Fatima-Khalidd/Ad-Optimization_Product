@@ -53,6 +53,27 @@ describe("InvoiceTable", () => {
     expect(screen.queryByText("Overdue")).not.toBeInTheDocument();
   });
 
+  it("clamps a negative amount_due at zero and shows an explicit overpaid line", () => {
+    render(
+      <InvoiceTable
+        invoices={[
+          invoice({
+            status: "paid",
+            total: "19600.00",
+            amount_paid: "24600.00",
+            amount_due: "-5000.00",
+          }),
+        ]}
+        selectedId={null}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("Rs. -5,000.00")).not.toBeInTheDocument();
+    expect(screen.getByText("Rs. 0.00")).toBeInTheDocument();
+    expect(screen.getByText(/overpaid by/i)).toHaveTextContent("Overpaid by Rs. 5,000.00");
+  });
+
   it("shows the empty state when there are no invoices", () => {
     render(<InvoiceTable invoices={[]} selectedId={null} onSelect={vi.fn()} />);
     expect(screen.getByText(/no invoices yet/i)).toBeInTheDocument();

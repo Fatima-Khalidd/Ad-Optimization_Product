@@ -4,7 +4,7 @@ import PaymentForm from "@/components/billing/PaymentForm";
 import PaymentHistory from "@/components/billing/PaymentHistory";
 import PaymentInstructions from "@/components/billing/PaymentInstructions";
 import StatusPill from "@/components/billing/StatusPill";
-import { isOverdue } from "@/lib/billing";
+import { clampedAmountDue, isOverdue, overpaidBy } from "@/lib/billing";
 import { formatPKRExact } from "@/lib/format";
 import type { Invoice, PaymentMethod } from "@/lib/types";
 
@@ -16,6 +16,7 @@ type Props = {
 
 export default function InvoiceDetail({ invoice, methods, onSubmitted }: Props) {
   const payable = invoice.status === "issued" || invoice.status === "payment_submitted";
+  const overpaid = overpaidBy(invoice);
   return (
     <section className="grid gap-6 rounded border border-slate/25 bg-surface p-5">
       <header className="grid gap-1">
@@ -50,8 +51,14 @@ export default function InvoiceDetail({ invoice, methods, onSubmitted }: Props) 
         </div>
         <div className="flex justify-between font-medium">
           <dt>Still owed</dt>
-          <dd className="numeral">{formatPKRExact(invoice.amount_due)}</dd>
+          <dd className="numeral">{formatPKRExact(clampedAmountDue(invoice))}</dd>
         </div>
+        {overpaid ? (
+          <div className="flex justify-between font-medium text-teal">
+            <dt>Overpaid by</dt>
+            <dd className="numeral">{formatPKRExact(overpaid)}</dd>
+          </div>
+        ) : null}
       </dl>
 
       <a

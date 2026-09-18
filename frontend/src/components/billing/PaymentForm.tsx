@@ -19,6 +19,16 @@ const FIELD =
 const MAX_PROOF_BYTES = 5 * 1024 * 1024;
 const ALLOWED_PROOF_TYPES = ["image/png", "image/jpeg", "application/pdf"];
 
+// Mirrors PaymentSubmission.amount server-side (Decimal, gt=0, max_digits=14, decimal_places=2):
+// at most 2 decimal places and at most 12 integer digits. The <input type="number" step="0.01">
+// does not actually block a typo like "100.555" (its `step` mismatch is only a soft validity
+// hint, not enforced without native form validation, and this form renders `noValidate`), so
+// this is checked again here before the request ever leaves the browser.
+function isValidAmount(value: string): boolean {
+  if (!/^\d{1,12}(\.\d{1,2})?$/.test(value.trim())) return false;
+  return Number(value) > 0;
+}
+
 export default function PaymentForm({ invoiceId, methods, defaultAmount, onSubmitted }: Props) {
   const [methodType, setMethodType] = useState(methods[0]?.type ?? "jazzcash");
   const [transactionRef, setTransactionRef] = useState("");
@@ -62,6 +72,10 @@ export default function PaymentForm({ invoiceId, methods, defaultAmount, onSubmi
     }
     if (!transactionRef.trim()) {
       setError("Enter the transaction ID from your payment app.");
+      return;
+    }
+    if (!isValidAmount(amount)) {
+      setError("Enter an amount in PKR with at most 2 decimal places.");
       return;
     }
     const form = new FormData();

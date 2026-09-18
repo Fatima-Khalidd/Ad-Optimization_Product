@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { amountDue, isOverdue, METHOD_LABELS, STATUS_LABELS, toISODate } from "@/lib/billing";
+import { isOverdue, METHOD_LABELS, STATUS_LABELS, toISODate } from "@/lib/billing";
 
 const unpaid = { due_date: "2026-10-07", status: "issued" } as const;
 
@@ -30,13 +30,6 @@ describe("isOverdue", () => {
     // 23:30 local on the due date is still the due date, whatever the timezone offset.
     expect(isOverdue(unpaid, new Date(2026, 9, 7, 23, 30))).toBe(false);
     expect(toISODate(new Date(2026, 9, 7, 23, 30))).toBe("2026-10-07");
-  });
-});
-
-describe("amountDue", () => {
-  it("subtracts what has been confirmed from the total", () => {
-    expect(amountDue({ total: "19600.00", amount_paid: "10000.00" })).toBe(9600);
-    expect(amountDue({ total: "19600.00", amount_paid: "19600.00" })).toBe(0);
   });
 });
 

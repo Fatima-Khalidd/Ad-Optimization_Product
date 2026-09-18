@@ -34,6 +34,12 @@ class InvalidConfigError(AppError):
     status_code = 422
 
 
+class ValidationError(AppError):
+    """A value passed Form()/dependency parsing but still fails a schema's own rules."""
+
+    status_code = 422
+
+
 class DuplicateUploadError(AppError):
     status_code = 409
 

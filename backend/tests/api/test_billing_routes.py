@@ -178,6 +178,14 @@ def test_a_bad_form_is_422_not_500(client_a: TestClient, db: Session, client_a_r
     assert client_a.post(url, data={**FORM, "method_type": "paypal"}).status_code == 422
     assert client_a.post(url, data={**FORM, "paid_at": "yesterday"}).status_code == 422
     assert client_a.post(url, data={**FORM, "transaction_ref": ""}).status_code == 422
+    # A typo like an extra decimal digit, or a value with more digits/an exponent than the
+    # PaymentSubmission schema (max_digits=14, decimal_places=2) allows, must be a 422 raised
+    # by the Form() layer itself — never a bare pydantic.ValidationError escaping the handler.
+    assert client_a.post(url, data={**FORM, "amount": "100.555"}).status_code == 422
+    assert client_a.post(url, data={**FORM, "amount": "999999999999999.00"}).status_code == 422
+    assert client_a.post(url, data={**FORM, "amount": "1e20"}).status_code == 422
+    db.expire_all()
+    assert db.scalars(select(Payment)).all() == []
 
 
 def test_a_paid_invoice_does_not_take_more_payments(
