@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import InvoiceDetail from "@/components/billing/InvoiceDetail";
@@ -61,6 +62,21 @@ export default function BillingPage() {
       ) : null}
       <InvoiceTable invoices={invoices} selectedId={selectedId} onSelect={setSelectedId} />
       {selected ? <InvoiceDetail invoice={selected} methods={methods} onSubmitted={refresh} /> : null}
+      <p className="mt-10 text-xs text-slate">
+        Paying an invoice means you accept our{" "}
+        <Link href="/terms" className="underline hover:text-teal">
+          Terms
+        </Link>
+        ,{" "}
+        <Link href="/privacy" className="underline hover:text-teal">
+          Privacy Policy
+        </Link>{" "}
+        and{" "}
+        <Link href="/refunds" className="underline hover:text-teal">
+          Refund Policy
+        </Link>
+        .
+      </p>
     </main>
   );
 }
