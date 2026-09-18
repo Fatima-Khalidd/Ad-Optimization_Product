@@ -145,12 +145,24 @@ export interface MeOut {
   client: ClientOut | null;
 }
 
-/** Stage 7 payloads. Declared here because INTERFACES puts them in types.ts. */
-export type PaymentMethodType = "jazzcash" | "easypaisa" | "nayapay" | "raast" | "bank_iban";
+/**
+ * Stage 7 payloads. Declared here because INTERFACES puts them in types.ts.
+ * Mirrors backend/app/schemas/billing.py field-for-field. Money fields are
+ * decimal strings (see the module docblock above) — never numbers.
+ */
+export type InvoiceStatus = "draft" | "issued" | "payment_submitted" | "paid" | "void";
+export type MethodType = "jazzcash" | "easypaisa" | "nayapay" | "raast" | "bank_iban";
 
-export interface PaymentMethodOut {
+export interface PaymentInstruction {
+  method_type: MethodType;
+  account_title: string;
+  account_identifier: string;
+  instructions: string | null;
+}
+
+export interface PaymentMethod {
   id: number;
-  type: PaymentMethodType;
+  type: MethodType;
   account_title: string;
   account_identifier: string;
   instructions: string | null;
@@ -158,33 +170,54 @@ export interface PaymentMethodOut {
   sort_order: number;
 }
 
-export interface PaymentOut {
+export interface Payment {
   id: number;
-  method_type: PaymentMethodType;
+  method_type: MethodType;
   transaction_ref: string;
   /** Money — decimal string. */
   amount: string;
   paid_at: string;
   status: "pending" | "confirmed" | "rejected";
   review_note: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  has_proof: boolean;
 }
 
-export interface InvoiceOut {
+export interface Invoice {
   id: number;
   invoice_number: string;
   period_start: string;
   period_end: string;
-  due_date: string | null;
+  due_date: string;
   /** Money — decimal string. */
   base_fee: string;
-  /** Money — decimal string, or null. */
-  confirmed_recovered_waste: string | null;
+  /** Money — decimal string. */
+  confirmed_recovered_waste: string;
   /** Money — decimal string. */
   performance_fee: string;
   /** Money — decimal string. */
   total: string;
   /** Money — decimal string. */
   amount_paid: string;
-  status: "draft" | "issued" | "payment_submitted" | "paid" | "void";
-  payments: PaymentOut[];
+  /** Money — decimal string. */
+  amount_due: string;
+  status: InvoiceStatus;
+  issued_at: string | null;
+  created_at: string;
+  is_overdue: boolean;
+  payments: Payment[];
+  instructions: PaymentInstruction[];
+}
+
+export interface AdminPayment extends Payment {
+  client_id: number;
+  business_name: string;
+  invoice_id: number;
+  invoice_number: string;
+  /** Money — decimal string. */
+  invoice_total: string;
+  invoice_due_date: string;
+  invoice_status: InvoiceStatus;
+  invoice_is_overdue: boolean;
 }
