@@ -2,13 +2,14 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_session
 from app.core.deps import CurrentAdmin
-from app.models import Client
+from app.core.errors import NotFoundError
+from app.models import Client, Invoice, Payment
 from app.schemas.admin import (
     AdminClientOut,
     AdminInvoiceOut,
@@ -21,9 +22,20 @@ from app.schemas.admin import (
     RunAdminOut,
     VoidInvoiceIn,
 )
+from app.schemas.billing import (
+    AdminPaymentOut,
+    PaymentMethodIn,
+    PaymentMethodOut,
+    PaymentMethodPatch,
+    RejectRequest,
+    ReviewRequest,
+    admin_payment_out,
+)
 from app.services import admin as admin_service
 from app.services import audit as audit_service
 from app.services import billing as billing_service
+from app.services import payments as payments_service
+from app.services.storage import get_storage
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -165,3 +177,92 @@ def list_audit_log(
     session: Session = Depends(get_session),
 ):
     return audit_service.list_entries(session, limit=limit, entity_type=entity_type, action=action)
+
+
+# --------------------------------------------------------------------------- manual payments
+
+# Reverse of payments_service.PROOF_TYPES: extension -> content type.
+_PROOF_MEDIA = {
+    extension: content_type
+    for content_type, (extension, _magic) in payments_service.PROOF_TYPES.items()
+}
+
+
+def _payment_row(session: Session, payment: Payment) -> AdminPaymentOut:
+    invoice = session.get(Invoice, payment.invoice_id)
+    client = session.get(Client, payment.client_id)
+    return admin_payment_out(payment, invoice, client)
+
+
+@router.get("/payments", response_model=list[AdminPaymentOut])
+def list_payments(
+    actor: CurrentAdmin, status: str = "pending", session: Session = Depends(get_session)
+):
+    """?status=pending (the review queue, default) or ?status=all for the whole history."""
+    rows = payments_service.list_pending_payments(session, None if status == "all" else status)
+    return [admin_payment_out(row.payment, row.invoice, row.client) for row in rows]
+
+
+@router.post("/payments/{payment_id}/confirm", response_model=AdminPaymentOut)
+def confirm_payment(
+    payment_id: int,
+    body: ReviewRequest,
+    actor: CurrentAdmin,
+    session: Session = Depends(get_session),
+):
+    """The ONLY way money is marked as received (docs/PLAN.md section 6, Stage 7, Rules)."""
+    payment = payments_service.confirm_payment(session, actor, payment_id, body.note)
+    return _payment_row(session, payment)
+
+
+@router.post("/payments/{payment_id}/reject", response_model=AdminPaymentOut)
+def reject_payment(
+    payment_id: int,
+    body: RejectRequest,
+    actor: CurrentAdmin,
+    session: Session = Depends(get_session),
+):
+    payment = payments_service.reject_payment(session, actor, payment_id, body.note)
+    return _payment_row(session, payment)
+
+
+@router.get("/payments/{payment_id}/proof")
+def get_payment_proof(
+    payment_id: int, actor: CurrentAdmin, session: Session = Depends(get_session)
+) -> Response:
+    payment = session.get(Payment, payment_id)
+    if payment is None or not payment.proof_file_path:
+        raise NotFoundError("no proof file for this payment")
+    extension = payment.proof_file_path.rsplit(".", 1)[-1].lower()
+    key = f"proofs/{payment.client_id}/{payment.id}.{extension}"
+    return Response(
+        content=get_storage().read(key),
+        media_type=_PROOF_MEDIA.get(extension, "application/octet-stream"),
+        headers={"Content-Disposition": f'inline; filename="proof-{payment.id}.{extension}"'},
+    )
+
+
+# --------------------------------------------------------------------------- payment methods
+
+
+@router.get("/payment-methods", response_model=list[PaymentMethodOut])
+def list_payment_methods(actor: CurrentAdmin, session: Session = Depends(get_session)):
+    """Admins see inactive accounts too, so they can switch one back on."""
+    return payments_service.list_payment_methods(session, active_only=False)
+
+
+@router.post("/payment-methods", response_model=PaymentMethodOut, status_code=201)
+def create_payment_method(
+    body: PaymentMethodIn, actor: CurrentAdmin, session: Session = Depends(get_session)
+):
+    return payments_service.create_payment_method(session, actor, body)
+
+
+@router.patch("/payment-methods/{method_id}", response_model=PaymentMethodOut)
+def update_payment_method(
+    method_id: int,
+    body: PaymentMethodPatch,
+    actor: CurrentAdmin,
+    session: Session = Depends(get_session),
+):
+    return payments_service.update_payment_method(session, actor, method_id, body)
