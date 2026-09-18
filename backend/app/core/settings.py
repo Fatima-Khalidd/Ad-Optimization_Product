@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./dev.db"
     secret_key: str = _DEV_SECRET
 
+    # --- payments (docs/PLAN.md section 6, Stage 7) ---
+    payment_provider: str = "manual"
+    max_proof_mb: int = 5
+
     # --- file storage (docs/PLAN.md section 1 #9) ---
     storage_backend: str = "local"  # "supabase" arrives in Stage 8
     storage_root: str = "./storage"

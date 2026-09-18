@@ -18,11 +18,14 @@ from app.models import (
     AdDataUpload,
     AnalysisRun,
     Client,
+    Invoice,
+    PaymentMethod,
     Recommendation,
     SegmentMetric,
     User,
     WasteReport,
 )
+from app.models._types import utcnow
 
 TEST_PASSWORD = "correct horse battery staple"
 
@@ -313,3 +316,75 @@ def make_approved_run(
     db.commit()
     db.refresh(run)
     return run
+
+
+# Smallest byte strings that still start with the real magic numbers.
+PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"0" * 64
+JPEG_BYTES = b"\xff\xd8\xff\xe0" + b"0" * 64
+PDF_BYTES = b"%PDF-1.7\n" + b"0" * 64
+
+
+def make_invoice(
+    db: Session,
+    client: Client,
+    *,
+    status: str = "issued",
+    total: Decimal = Decimal("19600.00"),
+    number: str = "INV-2026-0001",
+    base_fee: Decimal = Decimal("15000.00"),
+    recovered: Decimal = Decimal("23000.00"),
+    pct: Decimal = Decimal("20.00"),
+    due_date: date = date(2026, 10, 7),
+    amount_paid: Decimal = Decimal("0.00"),
+) -> Invoice:
+    """A committed invoice for `client`, September 2026 by default.
+
+    The defaults agree with each other: base 15,000 + 20% of 23,000 recovered waste = a 4,600
+    performance fee, so `total` is 19,600. If you override `base_fee`, `recovered` or `pct`,
+    pass a matching `total` so the row stays internally consistent.
+    """
+    performance_fee = (recovered * pct / Decimal("100")).quantize(Decimal("0.01"))
+    invoice = Invoice(
+        invoice_number=number,
+        client_id=client.id,
+        period_start=date(2026, 9, 1),
+        period_end=date(2026, 9, 30),
+        due_date=due_date,
+        base_fee=base_fee,
+        suggested_recovered_waste=recovered,
+        confirmed_recovered_waste=recovered,
+        performance_fee=performance_fee,
+        total=total,
+        amount_paid=amount_paid,
+        status=status,
+        issued_at=None if status == "draft" else utcnow(),
+    )
+    db.add(invoice)
+    db.commit()
+    db.refresh(invoice)
+    return invoice
+
+
+def make_method(
+    db: Session,
+    type: str = "jazzcash",
+    identifier: str = "03001234567",
+    *,
+    account_title: str = "Ali Raza",
+    instructions: str | None = "Send from your JazzCash app to this wallet.",
+    is_active: bool = True,
+    sort_order: int = 0,
+) -> PaymentMethod:
+    """A committed PaymentMethod row. `type` shadows the builtin only inside this function."""
+    method = PaymentMethod(
+        type=type,
+        account_title=account_title,
+        account_identifier=identifier,
+        instructions=instructions,
+        is_active=is_active,
+        sort_order=sort_order,
+    )
+    db.add(method)
+    db.commit()
+    db.refresh(method)
+    return method
