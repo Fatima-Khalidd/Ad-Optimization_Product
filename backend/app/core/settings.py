@@ -1,9 +1,9 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator, model_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 _DEV_SECRET = "dev-only-insecure-secret"
 _ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
@@ -50,6 +50,23 @@ class Settings(BaseSettings):
         if self.env == "prod":
             self.cookie_secure = True
         return self
+
+    # --- Stage 8: hardening & deploy -------------------------------------
+    sentry_dsn: str | None = None
+    cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
+    max_request_mb: int = 25
+    supabase_url: str | None = None
+    supabase_service_key: str | None = None
+    storage_bucket: str = "ad-optimizer"
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def _split_cors_origins(cls, value: object) -> object:
+        """CORS_ORIGINS is a comma-separated list, not JSON. Trailing slashes are dropped
+        because browsers send `Origin` without one and Starlette compares exact strings."""
+        if isinstance(value, str):
+            return [part.strip().rstrip("/") for part in value.split(",") if part.strip()]
+        return value
 
 
 @lru_cache
