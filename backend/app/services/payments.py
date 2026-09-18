@@ -6,15 +6,24 @@ invoices.amount_paid or move an invoice to "paid" (docs/PLAN.md section 6, Stage
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
+from io import BytesIO
 from typing import NamedTuple
 
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, FileTooLargeError, NotFoundError, UnsupportedMediaError
 from app.models import Client, Invoice, Payment, PaymentMethod, User
 from app.models._types import utcnow
+from app.payments.base import PaymentInstruction
 from app.schemas.billing import (
     CLIENT_VISIBLE_STATUSES,
     PAYABLE_STATUSES,
@@ -29,8 +38,10 @@ __all__ = [
     "PAYABLE_STATUSES",
     "PROOF_TYPES",
     "PaymentQueueRow",
+    "build_invoice_pdf",
     "confirm_payment",
     "create_payment_method",
+    "ensure_payable",
     "get_invoice",
     "list_invoices",
     "list_payment_methods",
@@ -89,6 +100,14 @@ def get_invoice(session: Session, client_id: int, invoice_id: int) -> Invoice:
     if invoice is None:
         raise NotFoundError("invoice not found")
     return invoice
+
+
+def ensure_payable(invoice: Invoice) -> None:
+    """Raise 409 unless a client may still report a payment against this invoice."""
+    if invoice.status not in PAYABLE_STATUSES:
+        raise ConflictError(
+            f"invoice {invoice.invoice_number} is {invoice.status} and cannot take payments"
+        )
 
 
 def list_payments(session: Session, invoice_id: int) -> list[Payment]:
@@ -277,3 +296,137 @@ def update_payment_method(
     session.commit()
     session.refresh(method)
     return method
+
+
+# --------------------------------------------------------------------------- invoice PDF
+
+INK = colors.HexColor("#0b1220")
+SLATE = colors.HexColor("#8891a5")
+HAIRLINE = colors.HexColor("#d8dde5")
+
+_TABLE_STYLE = TableStyle(
+    [
+        ("LINEBELOW", (0, 0), (-1, 0), 0.7, INK),
+        ("LINEBELOW", (0, 1), (-1, -2), 0.3, HAIRLINE),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]
+)
+
+
+def _money(value: Decimal) -> str:
+    """Rs. 19,600.00 — always two decimals, always from a Decimal.
+
+    Invoice amounts already carry exact cents (docs/PLAN.md section 1 #6), unlike the waste
+    report's format_pkr (app/services/pdf.py), which rounds to whole rupees for the dashboard's
+    headline numbers. There is nothing to round here — this just renders the Decimal as-is.
+    """
+    return f"Rs. {Decimal(value):,.2f}"
+
+
+def _day(value: date) -> str:
+    return f"{value.day:02d} {value:%b %Y}"
+
+
+def build_invoice_pdf(
+    invoice: Invoice, client: Client, instructions: list[PaymentInstruction]
+) -> bytes:
+    """One page: what is owed, why, and exactly where to send it."""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=20 * mm,
+        rightMargin=20 * mm,
+        topMargin=18 * mm,
+        bottomMargin=18 * mm,
+        title=f"Invoice {invoice.invoice_number}",
+        author="Ad Spend Optimization",
+    )
+    sheet = getSampleStyleSheet()
+    title = ParagraphStyle(
+        "InvoiceTitle", parent=sheet["Title"], fontSize=20, alignment=TA_LEFT, spaceAfter=2
+    )
+    heading = ParagraphStyle(
+        "InvoiceHeading", parent=sheet["Heading2"], fontSize=12, spaceBefore=6, spaceAfter=4
+    )
+    body = ParagraphStyle("InvoiceBody", parent=sheet["BodyText"], fontSize=9.5, leading=13)
+    muted = ParagraphStyle("InvoiceMuted", parent=body, textColor=SLATE)
+
+    flow = [
+        Paragraph(f"Invoice {invoice.invoice_number}", title),
+        Paragraph(client.business_name, body),
+        Paragraph(
+            f"Billing period: {_day(invoice.period_start)} to {_day(invoice.period_end)}", body
+        ),
+        Paragraph(f"Due date: {_day(invoice.due_date)}", body),
+        Spacer(1, 7 * mm),
+    ]
+
+    rows = [
+        [Paragraph("<b>Item</b>", body), Paragraph("<b>Amount</b>", body)],
+        [Paragraph("Monthly base fee", body), Paragraph(_money(invoice.base_fee), body)],
+        [
+            Paragraph(
+                "Performance fee on confirmed recovered waste of "
+                f"{_money(invoice.confirmed_recovered_waste)}",
+                body,
+            ),
+            Paragraph(_money(invoice.performance_fee), body),
+        ],
+        [Paragraph("<b>Total due</b>", body), Paragraph(f"<b>{_money(invoice.total)}</b>", body)],
+    ]
+    if Decimal(invoice.amount_paid) > 0:
+        balance = Decimal(invoice.total) - Decimal(invoice.amount_paid)
+        rows.append([Paragraph("Already paid", body), Paragraph(_money(invoice.amount_paid), body)])
+        rows.append(
+            [Paragraph("<b>Balance</b>", body), Paragraph(f"<b>{_money(balance)}</b>", body)]
+        )
+
+    amounts = Table(rows, colWidths=[115 * mm, 45 * mm], hAlign="LEFT")
+    amounts.setStyle(_TABLE_STYLE)
+    flow += [amounts, Spacer(1, 8 * mm), Paragraph("How to pay", heading)]
+
+    if instructions:
+        account_rows = [
+            [
+                Paragraph("<b>Method</b>", body),
+                Paragraph("<b>Account title</b>", body),
+                Paragraph("<b>Account number / IBAN</b>", body),
+            ]
+        ]
+        for instruction in instructions:
+            account_rows.append(
+                [
+                    Paragraph(
+                        METHOD_LABELS.get(instruction.method_type, instruction.method_type), body
+                    ),
+                    Paragraph(instruction.account_title, body),
+                    Paragraph(instruction.account_identifier, body),
+                ]
+            )
+        accounts = Table(account_rows, colWidths=[40 * mm, 50 * mm, 70 * mm], hAlign="LEFT")
+        accounts.setStyle(_TABLE_STYLE)
+        flow.append(accounts)
+        for instruction in instructions:
+            if instruction.instructions:
+                label = METHOD_LABELS.get(instruction.method_type, instruction.method_type)
+                flow.append(Paragraph(f"{label}: {instruction.instructions}", muted))
+    else:
+        flow.append(
+            Paragraph("No payment accounts are set up yet — contact us before paying.", muted)
+        )
+
+    flow += [
+        Spacer(1, 6 * mm),
+        Paragraph(
+            "Pay from your own wallet or bank app, then reply with your transaction ID on the "
+            "billing page. We confirm every payment by hand, so the invoice stays open until we "
+            "have checked it.",
+            body,
+        ),
+    ]
+
+    doc.build(flow)
+    return buffer.getvalue()
