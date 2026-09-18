@@ -1,10 +1,11 @@
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
-from fastapi import HTTPException
 from sqlalchemy import select
 
+from app.core.errors import ConflictError, FileTooLargeError, NotFoundError, UnsupportedMediaError
 from app.models import AuditLog, Invoice, Payment
 from app.payments.manual import ManualProvider
 from app.schemas.billing import PaymentMethodIn, PaymentMethodPatch, PaymentSubmission
@@ -124,18 +125,18 @@ def test_a_payment_can_only_be_reviewed_once(db):
     payment = _submit(db, client, invoice)
     payments_service.confirm_payment(db, admin, payment.id, None)
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(ConflictError) as exc:
         payments_service.confirm_payment(db, admin, payment.id, None)
     assert exc.value.status_code == 409
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(ConflictError) as exc:
         payments_service.reject_payment(db, admin, payment.id, "changed my mind")
     assert exc.value.status_code == 409
 
 
 def test_reviewing_a_payment_that_does_not_exist_is_404(db):
     admin = make_admin(db)
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(NotFoundError) as exc:
         payments_service.confirm_payment(db, admin, 4242, None)
     assert exc.value.status_code == 404
 
@@ -151,7 +152,7 @@ def test_clients_never_see_drafts_and_never_see_another_clients_invoice(db):
     assert payments_service.get_invoice(db, client_a.id, issued.id).id == issued.id
 
     for client_id, invoice_id in ((client_b.id, issued.id), (client_a.id, draft.id)):
-        with pytest.raises(HTTPException) as exc:
+        with pytest.raises(NotFoundError) as exc:
             payments_service.get_invoice(db, client_id, invoice_id)
         assert exc.value.status_code == 404
 
@@ -188,22 +189,22 @@ def test_validate_proof_accepts_png_jpeg_and_pdf(content_type, data, expected):
 
 
 def test_validate_proof_rejects_other_types_and_lying_content_types():
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(UnsupportedMediaError) as exc:
         payments_service.validate_proof("image/svg+xml", b"<svg/>", 5)
     assert exc.value.status_code == 415
 
-    with pytest.raises(HTTPException) as exc:  # says PNG, is really a zip
+    with pytest.raises(UnsupportedMediaError) as exc:  # says PNG, is really a zip
         payments_service.validate_proof("image/png", b"PK\x03\x04payload", 5)
     assert exc.value.status_code == 415
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(UnsupportedMediaError) as exc:
         payments_service.validate_proof(None, PNG_BYTES, 5)
     assert exc.value.status_code == 415
 
 
 def test_validate_proof_enforces_the_five_megabyte_cap():
     too_big = b"\x89PNG\r\n\x1a\n" + b"0" * (5 * 1024 * 1024)
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(FileTooLargeError) as exc:
         payments_service.validate_proof("image/png", too_big, 5)
     assert exc.value.status_code == 413
     assert "5 MB" in exc.value.detail
@@ -241,7 +242,7 @@ def test_payment_method_crud_is_audited_and_patches_only_what_is_sent(db):
 
 def test_updating_a_missing_payment_method_is_404(db):
     admin = make_admin(db)
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(NotFoundError) as exc:
         payments_service.update_payment_method(db, admin, 999, PaymentMethodPatch(sort_order=1))
     assert exc.value.status_code == 404
 
@@ -253,3 +254,16 @@ def test_list_payments_returns_the_history_oldest_first(db):
     second = _submit(db, client, invoice, "JC-90002")
     assert [p.id for p in payments_service.list_payments(db, invoice.id)] == [first.id, second.id]
     assert len(db.scalars(select(Payment)).all()) == 2
+
+
+def test_the_service_layer_never_imports_fastapi():
+    """app/services/payments.py and app/payments/manual.py raise AppError subclasses, which
+    create_app() maps centrally (app/core/errors.py) -- so this layer stays usable outside a
+    request (background tasks, scripts/) and there is exactly one error convention in the
+    codebase, not two. A plain source-text check is cheap and catches a reintroduced import
+    immediately, which is all this needs to guard against.
+    """
+    backend = Path(__file__).resolve().parents[2]
+    for relative in ("app/services/payments.py", "app/payments/manual.py"):
+        source = (backend / relative).read_text(encoding="utf-8")
+        assert "fastapi" not in source.lower(), f"{relative} must not import fastapi"

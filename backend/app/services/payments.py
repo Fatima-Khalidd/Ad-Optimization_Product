@@ -9,10 +9,10 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import NamedTuple
 
-from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.errors import ConflictError, FileTooLargeError, NotFoundError, UnsupportedMediaError
 from app.models import Client, Invoice, Payment, PaymentMethod, User
 from app.models._types import utcnow
 from app.schemas.billing import (
@@ -87,7 +87,7 @@ def get_invoice(session: Session, client_id: int, invoice_id: int) -> Invoice:
         )
     ).first()
     if invoice is None:
-        raise HTTPException(status_code=404, detail="invoice not found")
+        raise NotFoundError("invoice not found")
     return invoice
 
 
@@ -125,9 +125,9 @@ def list_pending_payments(
 def _get_payment(session: Session, payment_id: int) -> Payment:
     payment = session.get(Payment, payment_id)
     if payment is None:
-        raise HTTPException(status_code=404, detail="payment not found")
+        raise NotFoundError("payment not found")
     if payment.status != "pending":
-        raise HTTPException(status_code=409, detail=f"payment was already {payment.status}")
+        raise ConflictError(f"payment was already {payment.status}")
     return payment
 
 
@@ -208,15 +208,13 @@ def reject_payment(session: Session, actor: User, payment_id: int, note: str) ->
 def validate_proof(content_type: str | None, data: bytes, max_mb: int) -> str:
     """Return the file extension for a proof upload, or raise 413 (too big) / 415 (wrong kind)."""
     if len(data) > max_mb * 1024 * 1024:
-        raise HTTPException(status_code=413, detail=f"proof file must be {max_mb} MB or smaller")
+        raise FileTooLargeError(f"proof file must be {max_mb} MB or smaller")
     entry = PROOF_TYPES.get((content_type or "").split(";")[0].strip().lower())
     if entry is None:
-        raise HTTPException(status_code=415, detail="proof must be a PNG, JPEG or PDF file")
+        raise UnsupportedMediaError("proof must be a PNG, JPEG or PDF file")
     extension, magic = entry
     if not data.startswith(magic):
-        raise HTTPException(
-            status_code=415, detail="proof file contents do not match its file type"
-        )
+        raise UnsupportedMediaError("proof file contents do not match its file type")
     return extension
 
 
@@ -263,7 +261,7 @@ def update_payment_method(
 ) -> PaymentMethod:
     method = session.get(PaymentMethod, method_id)
     if method is None:
-        raise HTTPException(status_code=404, detail="payment method not found")
+        raise NotFoundError("payment method not found")
     before = _method_snapshot(method)
     for field, value in patch.model_dump(exclude_unset=True).items():
         setattr(method, field, value)

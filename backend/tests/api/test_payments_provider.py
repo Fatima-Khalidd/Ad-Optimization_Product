@@ -5,10 +5,10 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
-from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy import select
 
+from app.core.errors import ConflictError
 from app.core.settings import get_settings
 from app.models import Invoice, Payment
 from app.payments import get_payment_provider
@@ -157,7 +157,7 @@ def test_the_same_transaction_ref_cannot_be_used_twice_for_one_method(db):
     provider = ManualProvider()
     provider.submit(db, client, invoice, _submission("JC-90001"), None, None)
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(ConflictError) as exc:
         provider.submit(db, client, invoice, _submission("JC-90001"), None, None)
 
     assert exc.value.status_code == 409

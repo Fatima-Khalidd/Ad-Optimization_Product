@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from app.core.errors import ConflictError
 from app.models import Invoice, Payment, PaymentMethod
 from app.payments.base import PaymentInstruction
 from app.services.storage import get_storage
@@ -67,9 +67,8 @@ class ManualProvider:
             session.flush()
         except IntegrityError:
             session.rollback()
-            raise HTTPException(
-                status_code=409,
-                detail="this transaction id has already been submitted for this payment method",
+            raise ConflictError(
+                "this transaction id has already been submitted for this payment method"
             ) from None
 
         if proof is not None and proof_ext is not None:

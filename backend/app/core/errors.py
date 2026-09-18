@@ -44,3 +44,9 @@ class FileTooLargeError(AppError):
 
 class InvalidUploadError(AppError):
     status_code = 422
+
+
+class UnsupportedMediaError(AppError):
+    """The bytes don't match any accepted file type (docs/PLAN.md section 6, proof uploads)."""
+
+    status_code = 415
