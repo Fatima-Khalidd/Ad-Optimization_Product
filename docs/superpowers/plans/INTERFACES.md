@@ -183,6 +183,7 @@ build_invoice_pdf(invoice: Invoice, client: Client, instructions: list[PaymentIn
 Settings gains: sentry_dsn: str | None, cors_origins: list[str], max_request_mb: int = 25, supabase_url, supabase_service_key, storage_bucket
 app/core/middleware.py: security headers, request-size limit, request-id + structured JSON logging
 SupabaseStorage(StorageBackend) in services/storage.py (Supabase Storage REST, service key, private bucket)
+  + StorageError(RuntimeError) raised by SupabaseStorage and by get_storage() on missing config
 Deploy files: backend/Procfile (uvicorn), backend/railway.toml or render.yaml, frontend on Vercel (BACKEND_URL env), .env.production examples
 scripts/seed_demo.py: demo client + sample upload + approved run
 Frontend routes: /terms, /privacy, /refunds (content supplied by owner; placeholders marked TODO-OWNER are allowed ONLY for legal copy)

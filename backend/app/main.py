@@ -30,9 +30,29 @@ def _check_cors(settings: Settings) -> None:
         )
 
 
+def _init_sentry(settings: Settings) -> None:
+    """Error reporting, off unless a DSN is configured.
+
+    `send_default_pii=False` keeps client email addresses, cookies and request bodies out
+    of Sentry — this app handles invoices and payment references (`docs/PLAN.md` §7).
+    The FastAPI/Starlette integrations auto-enable; no integration list is needed.
+    """
+    if not settings.sentry_dsn:
+        return
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.env,
+        send_default_pii=False,
+        traces_sample_rate=0.0,
+    )
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging()
+    _init_sentry(settings)
     _check_cors(settings)
     application = FastAPI(title="Ad Spend Optimization API", version="0.1.0")
 

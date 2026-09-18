@@ -21,8 +21,21 @@ class Base(DeclarativeBase):
 
 
 def make_engine(url: str) -> Engine:
-    connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
-    return create_engine(url, pool_pre_ping=True, connect_args=connect_args)
+    """SQLite keeps the dev/test defaults; Postgres is sized for Supabase's session pooler.
+
+    A Supabase project shares a fixed number of pooler connections across every client, so
+    each container is capped at pool_size + max_overflow = 10, and connections are recycled
+    every 30 minutes so the pooler never closes one out from under us (`docs/PLAN.md` §7 #3).
+    """
+    if url.startswith("sqlite"):
+        return create_engine(url, pool_pre_ping=True, connect_args={"check_same_thread": False})
+    return create_engine(
+        url,
+        pool_pre_ping=True,
+        pool_size=5,
+        max_overflow=5,
+        pool_recycle=1800,
+    )
 
 
 _engine: Engine | None = None
