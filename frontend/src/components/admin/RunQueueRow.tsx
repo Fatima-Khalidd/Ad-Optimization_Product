@@ -13,6 +13,7 @@ export default function RunQueueRow({
   onToggle,
   onApprove,
   onReject,
+  onRequeue,
 }: {
   run: AdminRun;
   expanded: boolean;
@@ -20,6 +21,7 @@ export default function RunQueueRow({
   onToggle: () => void;
   onApprove: (note: string) => void;
   onReject: (note: string) => void;
+  onRequeue: () => void;
 }) {
   const [note, setNote] = useState("");
 
@@ -87,6 +89,23 @@ export default function RunQueueRow({
                   {JSON.stringify(run.config_snapshot, null, 2)}
                 </pre>
               </div>
+
+              {run.status === "running" && (
+                <div className="md:col-span-2">
+                  <p className="mb-1 text-xs text-slate">
+                    Stuck in &ldquo;running&rdquo; for a while? A crashed worker can leave a
+                    run here forever. Re-queuing only works once the run is genuinely stale.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={onRequeue}
+                    className="border border-teal px-3 py-1 text-teal disabled:opacity-50"
+                  >
+                    Re-queue
+                  </button>
+                </div>
+              )}
 
               {run.review_status === "pending" ? (
                 <div className="flex flex-wrap items-end gap-2 md:col-span-2">

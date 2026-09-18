@@ -11,6 +11,7 @@ ROUTES = [
     ("GET", "/api/admin/runs", None),
     ("POST", "/api/admin/runs/1/approve", {"note": "ok"}),
     ("POST", "/api/admin/runs/1/reject", {"note": "no"}),
+    ("POST", "/api/admin/runs/1/requeue", None),
     ("GET", "/api/admin/invoices", None),
     (
         "POST",

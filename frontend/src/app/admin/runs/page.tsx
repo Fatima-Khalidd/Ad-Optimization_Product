@@ -42,6 +42,19 @@ export default function RunsPage() {
     }
   }
 
+  async function requeue(runId: number) {
+    setBusy(true);
+    setError(null);
+    try {
+      await apiFetch<AdminRun>(`/api/admin/runs/${runId}/requeue`, { method: "POST" });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Re-queue failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex gap-2 text-sm">
@@ -90,6 +103,7 @@ export default function RunsPage() {
                 onToggle={() => setExpanded(expanded === run.id ? null : run.id)}
                 onApprove={(note) => review(run.id, "approve", note)}
                 onReject={(note) => review(run.id, "reject", note)}
+                onRequeue={() => requeue(run.id)}
               />
             ))}
           </tbody>

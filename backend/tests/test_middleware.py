@@ -4,7 +4,7 @@ import logging
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.middleware import REQUEST_ID_HEADER, JsonFormatter, request_id_var
+from app.core.middleware import REQUEST_ID_HEADER, JsonFormatter, configure_logging, request_id_var
 from app.core.settings import get_settings
 from app.main import create_app
 
@@ -155,6 +155,13 @@ def test_413_still_carries_the_security_headers_and_a_request_id(build_app):
     assert response.status_code == 413
     assert response.headers["X-Content-Type-Options"] == "nosniff"
     assert len(response.headers[REQUEST_ID_HEADER]) == 32
+
+
+def test_configure_logging_stops_uvicorn_access_from_double_logging():
+    """F6(a): app.access already logs one line per request; uvicorn.access propagating too
+    would double every production access log line."""
+    configure_logging()
+    assert logging.getLogger("uvicorn.access").propagate is False
 
 
 def test_a_non_numeric_content_length_is_rejected_with_400(build_app):

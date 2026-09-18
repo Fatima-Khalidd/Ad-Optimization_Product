@@ -101,6 +101,13 @@ def reject_run(
     return admin_service.serialize_run(session, run)
 
 
+@router.post("/runs/{run_id}/requeue", response_model=RunAdminOut)
+def requeue_run(run_id: int, actor: CurrentAdmin, session: Session = Depends(get_session)):
+    """F5(e): admin escape hatch for a run a crashed worker left stuck in `running`."""
+    run = admin_service.requeue_run(session, actor, run_id)
+    return admin_service.serialize_run(session, run)
+
+
 @router.get("/invoices", response_model=list[AdminInvoiceOut])
 def list_invoices(
     actor: CurrentAdmin,

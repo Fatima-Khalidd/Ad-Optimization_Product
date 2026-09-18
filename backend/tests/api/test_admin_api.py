@@ -312,3 +312,33 @@ def test_invoice_rows_carry_the_clients_business_name(api, db):
     assert draft.json()["business_name"] == client.business_name
     listed = api.get("/api/admin/invoices").json()
     assert listed[0]["business_name"] == client.business_name
+
+
+# --------------------------------------------------------------------------- F5(e): requeue
+
+STALE = datetime(2020, 1, 1, tzinfo=UTC)
+
+
+def test_admin_can_requeue_a_stale_running_run(api, db):
+    admin = make_admin(db)
+    client = make_client(db)
+    run = make_run(db, client, created_at=STALE, status="running", headline_waste=None)
+    db.commit()
+
+    login_as(api, admin)
+    response = api.post(f"/api/admin/runs/{run.id}/requeue")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "queued"
+
+
+def test_requeuing_a_fresh_running_run_is_409(api, db):
+    admin = make_admin(db)
+    client = make_client(db)
+    run = make_run(db, client, created_at=datetime.now(UTC), status="running", headline_waste=None)
+    db.commit()
+
+    login_as(api, admin)
+    response = api.post(f"/api/admin/runs/{run.id}/requeue")
+
+    assert response.status_code == 409

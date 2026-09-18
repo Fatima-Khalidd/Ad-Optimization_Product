@@ -171,3 +171,31 @@ def test_get_storage_refuses_supabase_without_credentials(monkeypatch):
     with pytest.raises(StorageError, match="SUPABASE_URL"):
         get_storage()
     get_settings.cache_clear()
+
+
+def test_get_storage_reuses_the_same_supabase_client_for_the_same_settings(monkeypatch):
+    """F6(b): get_storage() must not build (and leak) a fresh httpx.Client on every call."""
+    monkeypatch.setenv("STORAGE_BACKEND", "supabase")
+    monkeypatch.setenv("SUPABASE_URL", URL)
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", KEY)
+    monkeypatch.setenv("STORAGE_BUCKET", BUCKET)
+    get_settings.cache_clear()
+
+    first = get_storage()
+    second = get_storage()
+
+    assert first is second
+    get_settings.cache_clear()
+
+
+def test_get_storage_returns_a_different_client_for_a_different_bucket(monkeypatch):
+    monkeypatch.setenv("STORAGE_BACKEND", "supabase")
+    monkeypatch.setenv("SUPABASE_URL", URL)
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", KEY)
+    monkeypatch.setenv("STORAGE_BUCKET", "a-different-bucket")
+    get_settings.cache_clear()
+
+    storage = get_storage()
+
+    assert storage.bucket == "a-different-bucket"
+    get_settings.cache_clear()

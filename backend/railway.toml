@@ -5,9 +5,22 @@
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+# --forwarded-allow-ips: Railway's own edge proxy sits in front of this service, so
+# request.client.host is Railway's proxy address, never the caller's. Without this flag
+# uvicorn's default (127.0.0.1,::1) discards X-Forwarded-For here, and every caller then
+# shares ONE login rate-limit bucket (F1) - five failed attempts from one attacker locks
+# out every other user, including the admin. `*` trusts whatever proxy connects directly
+# to uvicorn; that is safe ONLY because app.core.rate_limit.client_ip_key (and the access
+# log) key on the FIRST hop of X-Forwarded-For rather than trusting the header wholesale,
+# and because Railway is the only thing that can reach this process directly. Override via
+# the FORWARDED_ALLOW_IPS Railway variable if that ever stops being true.
+startCommand = "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --forwarded-allow-ips=${FORWARDED_ALLOW_IPS:-*}"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
+# F6(d): load-bearing, not just cost control. slowapi's Limiter stores counters in
+# process memory (backend/app/core/rate_limit.py); with numReplicas > 1 each replica
+# would keep its own counter, so the effective login rate limit would multiply by the
+# replica count. Raise this only after moving the limiter to a shared store (e.g. Redis).
 numReplicas = 1

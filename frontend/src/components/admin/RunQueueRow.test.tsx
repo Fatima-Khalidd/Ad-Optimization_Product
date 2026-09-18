@@ -35,6 +35,7 @@ function renderRow(overrides: Partial<ComponentProps<typeof RunQueueRow>> = {}) 
     onToggle: vi.fn(),
     onApprove: vi.fn(),
     onReject: vi.fn(),
+    onRequeue: vi.fn(),
     ...overrides,
   };
   render(
@@ -90,5 +91,17 @@ describe("RunQueueRow", () => {
     });
     expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
     expect(screen.getByText("checked")).toBeInTheDocument();
+  });
+
+  it("offers a Re-queue button for a running run and calls onRequeue", () => {
+    const props = renderRow({ run: { ...RUN, status: "running" }, expanded: true });
+
+    fireEvent.click(screen.getByRole("button", { name: "Re-queue" }));
+    expect(props.onRequeue).toHaveBeenCalled();
+  });
+
+  it("does not offer a Re-queue button for a run that is not running", () => {
+    renderRow({ run: { ...RUN, status: "done" }, expanded: true });
+    expect(screen.queryByRole("button", { name: "Re-queue" })).not.toBeInTheDocument();
   });
 });

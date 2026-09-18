@@ -72,3 +72,40 @@ def test_empty_cors_list_is_refused_in_prod(monkeypatch):
     with pytest.raises(CorsMisconfiguredError):
         create_app()
     get_settings.cache_clear()
+
+
+def test_unset_cors_origins_is_refused_in_prod(monkeypatch):
+    """F2: with CORS_ORIGINS never set, Settings falls back to its dev default
+    (http://localhost:3000) - prod must refuse to boot on that default, not silently
+    block the real frontend while accepting a credentialed localhost origin."""
+    monkeypatch.setenv("ENV", "prod")
+    monkeypatch.setenv("SECRET_KEY", "p" * 32)
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:pw@host/db")
+    monkeypatch.delenv("CORS_ORIGINS", raising=False)
+    get_settings.cache_clear()
+    with pytest.raises(CorsMisconfiguredError, match="localhost"):
+        create_app()
+    get_settings.cache_clear()
+
+
+def test_a_localhost_origin_among_real_ones_is_refused_in_prod(monkeypatch):
+    monkeypatch.setenv("ENV", "prod")
+    monkeypatch.setenv("SECRET_KEY", "p" * 32)
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:pw@host/db")
+    monkeypatch.setenv("CORS_ORIGINS", "https://app.example.com,http://127.0.0.1:3000")
+    get_settings.cache_clear()
+    with pytest.raises(CorsMisconfiguredError, match="127.0.0.1"):
+        create_app()
+    get_settings.cache_clear()
+
+
+def test_a_real_https_origin_boots_in_prod(monkeypatch):
+    monkeypatch.setenv("ENV", "prod")
+    monkeypatch.setenv("SECRET_KEY", "p" * 32)
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:pw@host/db")
+    monkeypatch.setenv("CORS_ORIGINS", "https://app.example.com")
+    get_settings.cache_clear()
+    app = create_app()
+    with TestClient(app) as prod_client:
+        assert prod_client.get("/api/health").status_code == 200
+    get_settings.cache_clear()

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -6,6 +6,7 @@ import pytest
 from app.core.errors import ConflictError, NotFoundError
 from app.models import AuditLog
 from app.services import admin
+from app.services.admin import STALE_RUN_MINUTES
 from app.services.analysis import get_report
 from tests.api.helpers import make_admin, make_client, make_run
 
@@ -141,3 +142,71 @@ def test_approving_a_run_is_what_makes_the_clients_report_visible(session):
     admin.reject_run(session, actor, other_pending.id, note="wrong month")
     with pytest.raises(NotFoundError):
         get_report(session, client.id, other_pending.id)
+
+
+# --------------------------------------------------------------------------- F5(e): requeue
+
+
+def _now() -> datetime:
+    return datetime.now(UTC)
+
+
+def test_requeue_run_requeues_a_stale_running_run_and_audits(session):
+    actor = make_admin(session)
+    client = make_client(session)
+    stale_created = _now() - timedelta(minutes=STALE_RUN_MINUTES + 1)
+    run = make_run(session, client, created_at=stale_created, status="running", headline_waste=None)
+    session.commit()
+
+    requeued = admin.requeue_run(session, actor, run.id)
+
+    assert requeued.status == "queued"
+
+    entry = session.query(AuditLog).one()
+    assert entry.action == "run.requeue"
+    assert entry.entity_type == "analysis_run"
+    assert entry.entity_id == run.id
+    assert entry.actor_user_id == actor.id
+    assert entry.before["status"] == "running"
+    assert entry.after["status"] == "queued"
+
+
+def test_requeue_run_refuses_a_fresh_running_run(session):
+    actor = make_admin(session)
+    client = make_client(session)
+    fresh_created = _now() - timedelta(minutes=STALE_RUN_MINUTES - 1)
+    run = make_run(session, client, created_at=fresh_created, status="running", headline_waste=None)
+    session.commit()
+
+    with pytest.raises(ConflictError):
+        admin.requeue_run(session, actor, run.id)
+
+    assert session.query(AuditLog).count() == 0
+
+
+@pytest.mark.parametrize("status", ["queued", "done", "failed"])
+def test_requeue_run_refuses_any_non_running_status(session, status):
+    actor = make_admin(session)
+    client = make_client(session)
+    stale_created = _now() - timedelta(minutes=STALE_RUN_MINUTES + 1)
+    run = make_run(
+        session,
+        client,
+        created_at=stale_created,
+        status=status,
+        headline_waste=None if status != "done" else Decimal("1000.00"),
+    )
+    session.commit()
+
+    with pytest.raises(ConflictError):
+        admin.requeue_run(session, actor, run.id)
+
+    assert session.query(AuditLog).count() == 0
+
+
+def test_requeue_run_raises_not_found_for_a_missing_run(session):
+    actor = make_admin(session)
+    session.commit()
+
+    with pytest.raises(NotFoundError, match="run 4242 not found"):
+        admin.requeue_run(session, actor, 4242)

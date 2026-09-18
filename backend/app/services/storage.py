@@ -164,17 +164,34 @@ class SupabaseStorage:
             raise self._fail("delete", response)
 
 
+# F6(b): a SupabaseStorage instance owns an httpx.Client, which owns a real connection
+# pool - building a fresh one on every get_storage() call (this function is deliberately
+# NOT @lru_cache'd, see below) leaked a socket per call under load. This cache reuses the
+# same SupabaseStorage/httpx.Client for a given (url, key, bucket) triple instead, so a
+# process that stays on one Supabase project keeps exactly one pool for its lifetime.
+_supabase_storage_cache: dict[tuple[str, str, str], "SupabaseStorage"] = {}
+
+
 def get_storage() -> StorageBackend:
-    """Deliberately not cached: tests point `storage_root` at a fresh tmp_path per test."""
+    """LocalStorage is deliberately built fresh every call (not cached): tests point
+    `storage_root` at a fresh tmp_path per test, and LocalStorage holds no resource worth
+    reusing. SupabaseStorage IS reused across calls with the same settings — see
+    `_supabase_storage_cache` above.
+    """
     settings = get_settings()
     if settings.storage_backend == "supabase":
         if not settings.supabase_url or not settings.supabase_service_key:
             raise StorageError(
                 "STORAGE_BACKEND=supabase needs SUPABASE_URL and SUPABASE_SERVICE_KEY"
             )
-        return SupabaseStorage(
-            settings.supabase_url, settings.supabase_service_key, settings.storage_bucket
-        )
+        cache_key = (settings.supabase_url, settings.supabase_service_key, settings.storage_bucket)
+        cached = _supabase_storage_cache.get(cache_key)
+        if cached is None:
+            cached = SupabaseStorage(
+                settings.supabase_url, settings.supabase_service_key, settings.storage_bucket
+            )
+            _supabase_storage_cache[cache_key] = cached
+        return cached
     if settings.storage_backend == "local":
         return LocalStorage(settings.storage_root)
     raise ValueError(f"unknown storage_backend: {settings.storage_backend!r}")

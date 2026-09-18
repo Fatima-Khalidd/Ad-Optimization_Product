@@ -1,6 +1,6 @@
 """Admin operations on clients and analysis runs. Every mutation is audited."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -13,6 +13,16 @@ from app.services import audit
 
 CLIENT_AUDIT_FIELDS = ("base_fee", "performance_fee_pct", "config_overrides")
 RUN_AUDIT_FIELDS = ("status", "review_status", "reviewed_by", "reviewed_at", "review_note")
+REQUEUE_AUDIT_FIELDS = ("status",)
+
+# F5(e), Stage 8 review: a crashed worker (OOM, redeploy, an exception outside the
+# background task's own try/except) can leave a run in "running" forever - the Stage 3
+# in-flight reuse window only bounds a *new* analyze request, it never un-sticks this row.
+# There is no automatic sweep yet (that needs an `updated_at` column and a migration - see
+# docs/superpowers/plans/INTERFACES.md "Known gaps after Stage 8"); this constant instead
+# gates a manual admin escape hatch (`requeue_run`) so a genuinely stuck run isn't stuck
+# forever, while a run that is merely still processing can't be yanked out from under it.
+STALE_RUN_MINUTES = 30
 
 
 def list_clients(session: Session) -> list[Client]:
@@ -106,6 +116,46 @@ def _review_run(
         run.id,
         before,
         audit.snapshot(run, RUN_AUDIT_FIELDS),
+    )
+    session.commit()
+    return run
+
+
+def requeue_run(session: Session, actor: User, run_id: int) -> AnalysisRun:
+    """F5(e) escape hatch for a run a crashed worker left stuck in "running".
+
+    Only a run that is BOTH `status == "running"` AND older than `STALE_RUN_MINUTES` is
+    touched - a run that is genuinely still processing must not be yanked back to
+    `queued` out from under its worker. Everything else (queued/done/failed, or a running
+    run still inside its grace window) is a 409, same shape as `_review_run`.
+    """
+    run = get_run(session, run_id)
+    if run.status != "running":
+        raise ConflictError(f"run {run_id} status is {run.status}, not running")
+
+    created_at = run.created_at
+    if created_at.tzinfo is None:
+        # SQLite (dev/test) round-trips DateTime as naive; every value this app writes is
+        # UTC (app.models._types.utcnow), so this is a like-for-like comparison, not a
+        # guess. Postgres (prod) already returns an offset-aware value.
+        created_at = created_at.replace(tzinfo=UTC)
+    cutoff = datetime.now(UTC) - timedelta(minutes=STALE_RUN_MINUTES)
+    if created_at > cutoff:
+        raise ConflictError(
+            f"run {run_id} has been running for less than {STALE_RUN_MINUTES} minutes"
+        )
+
+    before = audit.snapshot(run, REQUEUE_AUDIT_FIELDS)
+    run.status = "queued"
+    session.flush()
+    audit.record(
+        session,
+        actor.id,
+        "run.requeue",
+        "analysis_run",
+        run.id,
+        before,
+        audit.snapshot(run, REQUEUE_AUDIT_FIELDS),
     )
     session.commit()
     return run

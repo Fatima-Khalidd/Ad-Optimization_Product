@@ -253,3 +253,44 @@ Stage 8 backlog from the Stage 2 review (do not lose): (a) `get_remote_address` 
 `confirm_invoice` recomputes with the invoice's **stored** `base_fee` (frozen at draft time) and the client's **current** `performance_fee_pct`. A drafted invoice's base fee must never change because an admin later edits the client's fee.
 
 `draft_invoice` rejects a new draft whose period **overlaps** an existing non-void invoice's period (`new_start <= existing_end AND new_end >= existing_start`), not merely one with identical dates — otherwise the same recovery can be billed twice by shifting a period by a day.
+
+## Known gaps after Stage 8 (whole-branch review, 2026-09-18)
+
+Four items were identified during the Stage 8 whole-branch review and deliberately dropped
+from that round's scope. Recorded here so they are not lost. (e) was additionally fixed in
+the same round, without a migration — see below.
+
+- **(b) No `Retry-After` header on a 429.** `rate_limit_exceeded_handler`
+  (`backend/app/core/rate_limit.py`) returns `429 {"detail": "too many requests"}` with no
+  `Retry-After`. Consequence: a well-behaved client (or the frontend's own retry logic) has
+  to guess when to try again instead of reading it off the response. Fix shape: compute the
+  remaining seconds in the current moving window from slowapi's limiter state and set
+  `Retry-After` on the response in the handler.
+- **(c) No server-side refresh-token revocation.** `POST /api/auth/logout` only clears the
+  `access_token`/`refresh_token` cookies; the refresh token itself remains valid until it
+  expires (7 days) if it was copied out of the browser before logout. Consequence: a stolen
+  refresh token survives a logout. Fix shape: a `refresh_tokens` table (token id/hash,
+  user id, `revoked_at`), checked on `POST /api/auth/refresh` and written on logout — needs
+  a migration.
+- **(e) A crashed worker leaves a run stuck in `running` with no retry.** If the background
+  task doing analysis dies mid-run (OOM, redeploy, unhandled exception outside its own
+  try/except), `analysis_runs.status` stays `"running"` forever; the client's dashboard
+  polls a run that will never finish, and the Stage 3 in-flight reuse window
+  (`docs/superpowers/plans/INTERFACES.md` Stage 3 close-out #7) only bounds how long a
+  *new* analyze request keeps reusing it, it does not un-stick the row itself.
+  **Fixed in the Stage 8 review, without a migration:** `app.services.admin.requeue_run`
+  gives an admin an escape hatch — for a run with `status == "running"` and `created_at`
+  older than `STALE_RUN_MINUTES` (30), it sets `status` back to `"queued"` and writes a
+  `run.requeue` audit row; any other status raises `ConflictError` (409). Exposed as
+  `POST /api/admin/runs/{id}/requeue` (admin-only) and a "Re-queue" button on
+  `/admin/runs`. A proper fix (a scheduled sweep that requeues automatically, plus an
+  `updated_at` column) is still open and would need a migration.
+- **(f) `created_at` has no `server_default`.** Every `created_at` column
+  (`analysis_runs`, `clients`, `users`, `invoices`, `payments`, `audit_log`, …) is populated
+  by the Python-side `default=utcnow` on the mapped column, not a DB-level
+  `server_default=func.now()`. Consequence: any row inserted by a path that bypasses the
+  ORM's `INSERT` defaults (a raw SQL migration backfill, a future bulk-load script, direct
+  `psql`) gets a NULL where the column is non-nullable, or silently skips the timestamp if
+  the column were ever made nullable. Fix shape: add `server_default=func.now()` to each
+  `created_at` column — needs a migration (an `ALTER COLUMN ... SET DEFAULT`, no data
+  rewrite).

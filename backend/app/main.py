@@ -28,6 +28,18 @@ def _check_cors(settings: Settings) -> None:
             "CORS_ORIGINS must list the exact frontend origin(s) in production; "
             f"got {settings.cors_origins!r}"
         )
+    # F2: CORS_ORIGINS defaults to ["http://localhost:3000"] (dev convenience), so an
+    # operator who forgets to set it in Railway would otherwise boot prod with the Vercel
+    # frontend BLOCKED and localhost accepted as a credentialed origin. This also catches
+    # any explicit localhost/127.0.0.1 entry, whether or not the rest of the list is real.
+    localhost_origins = [
+        origin for origin in settings.cors_origins if "localhost" in origin or "127.0.0.1" in origin
+    ]
+    if localhost_origins:
+        raise CorsMisconfiguredError(
+            "CORS_ORIGINS must not include a localhost/127.0.0.1 origin in production "
+            f"(and must be explicitly set to the real frontend origin); got {localhost_origins!r}"
+        )
 
 
 def _init_sentry(settings: Settings) -> None:

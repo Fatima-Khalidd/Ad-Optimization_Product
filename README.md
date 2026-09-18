@@ -312,11 +312,10 @@ alembic upgrade head
 python scripts/create_admin.py --email you@example.com --password '<a long password>'
 ```
 
-Optionally seed the sales-demo account, then delete the variable:
-
-```bash
-DEMO_PASSWORD='<a long password>' python -m scripts.seed_demo
-```
+`scripts/seed_demo.py` is for the **dev Supabase project only** — it refuses to run
+whenever `ENV=prod` (exit code 2), on purpose: a demo client with a shared, documented
+password is a real hazard in production. Do not run it against the prod database. There is
+no demo client in production; the admin account created above is the only account you need.
 
 Verify: signing in on the Vercel domain with the admin email reaches `/admin`.
 
@@ -326,8 +325,20 @@ Run the checklist below. Stage 8 is not done until every line is ticked **in pro
 
 ## Smoke-test checklist (production)
 
-Run in one sitting, in this order, on the live Vercel domain. Use a real browser, not curl —
-the point is to prove the cookie, CORS and storage paths work end to end.
+- [ ] **BLOCKING — legal copy is real.** `/terms`, `/privacy` and `/refunds` ship with
+      literal `TODO-OWNER` placeholder text. Before the site is shared with any client,
+      every `TODO-OWNER` must be replaced with reviewed copy, and the liability and
+      governing-law wording specifically must be read and signed off by the owner — this
+      is not boilerplate to rubber-stamp. Find every remaining placeholder with:
+
+      ```bash
+      grep -rn "TODO-OWNER" frontend/src/app
+      ```
+
+      That command must return nothing before this checklist is considered started.
+
+Run the rest in one sitting, in this order, on the live Vercel domain. Use a real browser,
+not curl — the point is to prove the cookie, CORS and storage paths work end to end.
 
 - [ ] **Signup.** `/signup` with a fresh email creates a client account and lands on the
       dashboard. The dashboard shows the "no uploads yet" empty state.
