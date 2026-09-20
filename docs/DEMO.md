@@ -43,10 +43,19 @@ Then:
 
 Let the hero animation play before you say anything. Then:
 
-> "This is a real month of ad data — 7,200 rows. Rs. 1,300,829 spent. The teal is money that
-> produced conversions. The coral is waste, and it's **Rs. 188,093** — about 14% of the budget."
+> "This is a sample month we generated to test with — 7,200 rows, the same shape a Meta export
+> comes in. Rs. 1,300,829 spent. The teal is money that produced conversions. The coral is
+> waste: **Rs. 188,093**, about 14% of the budget."
 
 **The point:** the picture *is* the product. Most tools hand you a spreadsheet.
+
+**Say "sample" or "test data", never "a real client".** It is synthetic — we generated it, and we
+deliberately made one placement convert badly so we could prove the detection works. If you
+imply it came from a real advertiser and your boss later finds out, you lose the credibility
+the rest of the demo is earning. If asked directly, the honest and *stronger* answer is:
+
+> "It's test data we generated, with a known fault planted in it — that's how we verify the
+> engine actually finds what it should. The next step is running a real export through it."
 
 ### 2. Show that it's not a black box (90 seconds) — scroll down
 
@@ -135,6 +144,11 @@ on every endpoint — another client's record returns "not found", so you can't 
 They're priced and built for enterprise marketing teams. This is for a business spending
 Rs. 100k–500k a month who currently guesses, or pays a freelancer a flat fee regardless of
 results.
+
+**"Is this a real client's data?"**
+No — it's synthetic data we generate, with a known fault deliberately planted so we can prove
+the engine detects it. No real advertiser's numbers have gone through it yet. Getting one real
+Meta export is the single most useful next step.
 
 **"Is it live?"**
 Not yet — it runs locally today. Going live is a deployment step, not more building: Supabase
