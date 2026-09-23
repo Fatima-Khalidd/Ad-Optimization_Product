@@ -148,23 +148,39 @@ export default function Home() {
       <section className="border-t border-slate/15" id="pricing">
         <div className="mx-auto max-w-5xl px-6 py-28">
           <h2 className="font-display text-3xl sm:text-4xl">You pay a share of what you save</h2>
+          <p className="mt-6 max-w-2xl font-body leading-relaxed text-slate">
+            Published, because a page that argues against black boxes should not hide its own
+            price.
+          </p>
           <div className="mt-12 grid gap-12 md:grid-cols-2">
             <div>
-              <h3 className="font-display text-xl">A small monthly base fee</h3>
+              <p className="font-display text-4xl leading-none text-paper sm:text-5xl">
+                Rs. 15,000
+                <span className="ml-2 align-middle text-base text-slate">/ month</span>
+              </p>
+              <h3 className="mt-5 font-display text-xl">The base fee</h3>
               <p className="mt-3 font-body leading-relaxed text-slate">
                 Covers the analysis itself — every upload, every report, every dimension, as often
                 as you want to run it.
               </p>
             </div>
             <div>
-              <h3 className="font-display text-xl">Plus a share of recovered waste</h3>
+              <p className="font-display text-4xl leading-none text-teal sm:text-5xl">
+                20%
+                <span className="ml-2 align-middle text-base text-slate">of recovered waste</span>
+              </p>
+              <h3 className="mt-5 font-display text-xl">The performance fee</h3>
               <p className="mt-3 font-body leading-relaxed text-slate">
                 Charged only on waste you actually recover, measured by comparing the flagged
-                segments before and after you act — and confirmed by a person before it ever
-                reaches an invoice. If nothing is recovered, there is nothing to charge.
+                segments before and after you act — and confirmed with you before it ever reaches
+                an invoice. If nothing is recovered, there is nothing to charge.
               </p>
             </div>
           </div>
+          <p className="mt-12 max-w-2xl font-body leading-relaxed text-paper">
+            The first audit is free. You see the report, and the numbers behind it, before you pay
+            anything at all.
+          </p>
           <p className="mt-12 max-w-2xl font-body leading-relaxed text-slate">
             Payment is by JazzCash, Easypaisa, NayaPay or a bank transfer over Raast. You submit
             the transaction ID and we confirm it — submitting an ID is a claim, not a payment, and

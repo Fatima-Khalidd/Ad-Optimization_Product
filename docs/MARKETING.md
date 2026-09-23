@@ -307,14 +307,30 @@ the problem is either your price or your follow-up.
 
 ## 5. Pricing, and the paperwork you need
 
-**A concrete starting point** — your call, but do not launch without deciding:
+**Your published price** — now live on the site:
 
-- **Base fee:** Rs. 10,000–15,000/month. High enough to be taken seriously, low
-  enough to be a rounding error against a Rs. 200,000 ad budget.
-- **Share of recovered waste:** 20%. Simple to explain, and familiar.
-- **For the first three pilots:** waive the base fee for the first month. Charge
-  the performance share only. You want the case study more than the money, and
-  "you pay nothing unless it works" removes most of the risk for a stranger.
+- **Base fee:** Rs. 15,000/month. Below what a freelance ad manager or an
+  agency retainer costs, so you are never the expensive option.
+- **Share of recovered waste:** 20%.
+- **First audit free**, which is what the landing page offers.
+
+It is published deliberately. A page that argues against black boxes cannot
+hide its own price; "contact us for pricing" is the move your audience already
+resents from agencies.
+
+**Keep one thing off the site and use it in conversation.** For your first
+three clients, waive the base fee for the first two or three months and charge
+the performance share only: *"You pay nothing unless I find money and you
+actually get it back."* For someone with no case study yet, that is the most
+persuasive sentence available — and it is credible precisely because the
+product cannot bill a performance fee without a person confirming the recovery
+first. Keep it off the page, because a deal you publish becomes your permanent
+price.
+
+**The risk to watch** is not that Rs. 15,000 is too low. It is a first client
+who recovers nothing because they never acted on the report, leaving you paid
+nothing for real work. That is what the base fee is for, which is why the
+waiver is for pilots only.
 
 **Write a one-page data agreement.** Half a page is fine. It should say: what
 you receive (ad performance figures, no customer data), what you do with it,

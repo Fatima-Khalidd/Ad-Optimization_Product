@@ -20,10 +20,14 @@ describe("landing page", () => {
     }
   });
 
-  it("states the pricing model without inventing a figure", () => {
+  it("publishes both price figures and the free first audit", () => {
     render(<Home />);
 
-    expect(screen.getByText(/share of what you save/i)).toBeInTheDocument();
+    // The page argues against black boxes; withholding its own price would be
+    // the first thing a sceptical reader noticed.
+    expect(screen.getByText(/Rs\. 15,000/)).toBeInTheDocument();
+    expect(screen.getByText(/20%/)).toBeInTheDocument();
+    expect(screen.getByText(/first audit is free/i)).toBeInTheDocument();
     expect(screen.getByText(/only on waste you actually recover/i)).toBeInTheDocument();
   });
 
