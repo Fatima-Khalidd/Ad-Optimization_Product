@@ -56,6 +56,17 @@ describe("landing page", () => {
     expect(screen.queryByRole("link", { name: /^get started$/i })).not.toBeInTheDocument();
   });
 
+  it("offers WhatsApp, in the form wa.me actually accepts", () => {
+    render(<Home />);
+
+    // wa.me wants full international form, digits only — a leading 0 or a "+"
+    // gives a "phone number shared via url is invalid" page, and the enquiry
+    // is lost with no error anyone would notice.
+    const wa = screen.getByRole("link", { name: /whatsapp/i });
+    expect(wa.getAttribute("href")).toMatch(/^https:\/\/wa\.me\/92\d{10}\?/);
+    expect(screen.getByText("0321 2964496")).toBeInTheDocument();
+  });
+
   it("prints the address as readable text, not only as a mailto link", () => {
     render(<Home />);
 

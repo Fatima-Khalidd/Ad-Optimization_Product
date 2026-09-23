@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import CinematicHero from "@/components/landing/CinematicHero";
 import LandingNav from "@/components/landing/LandingNav";
-import { CONTACT_EMAIL, MAILTO_HREF, WHATSAPP_HREF } from "@/lib/contact";
+import { CONTACT_EMAIL, MAILTO_HREF, WHATSAPP_DISPLAY, WHATSAPP_HREF } from "@/lib/contact";
 
 export const metadata: Metadata = {
   title: "Ad Spend Optimization — find the waste in your ad budget",
@@ -215,6 +215,9 @@ export default function Home() {
                 >
                   Message us on WhatsApp
                 </a>
+                <p className="mt-3 font-body text-sm text-slate">
+                  Or save the number: <span className="text-paper">{WHATSAPP_DISPLAY}</span>
+                </p>
               </div>
             ) : null}
 

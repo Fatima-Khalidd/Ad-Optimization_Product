@@ -15,7 +15,10 @@
  * number in full international form, digits only, no "+" and no spaces —
  * e.g. "923001234567" for 0300 1234567. The block appears by itself.
  */
-export const WHATSAPP_NUMBER = "";
+export const WHATSAPP_NUMBER = "923212964496"; // 0321 2964496
+
+/** How the number is written locally — someone saving it types this, not the wa.me form. */
+export const WHATSAPP_DISPLAY = "0321 2964496";
 
 export const CONTACT_EMAIL = "fatimakhalidddd0@gmail.com";
 
