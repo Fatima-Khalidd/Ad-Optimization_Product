@@ -42,16 +42,25 @@ describe("landing page", () => {
     expect(screen.getAllByText(/JazzCash, Easypaisa/).length).toBeGreaterThan(0);
   });
 
-  it("routes every call to action to a free audit rather than self-serve sign-up", () => {
-    render(<Home />);
+  it("routes every call to action to the contact block, not to self-serve sign-up", () => {
+    const { container } = render(<Home />);
 
     const ctas = screen.getAllByRole("link", { name: /free audit/i });
     expect(ctas.length).toBeGreaterThan(0);
     for (const link of ctas) {
-      expect(link.getAttribute("href")).toMatch(/^(mailto:|https:\/\/wa\.me\/)/);
+      expect(link).toHaveAttribute("href", "#contact");
     }
+    expect(container.querySelector("#contact")).not.toBeNull();
     // A prospect must never be handed a form that cannot submit.
     expect(screen.queryByRole("link", { name: /create an account/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^get started$/i })).not.toBeInTheDocument();
+  });
+
+  it("prints the address as readable text, not only as a mailto link", () => {
+    render(<Home />);
+
+    // A mailto: does nothing at all on a machine with no mail client
+    // configured, so the address has to be selectable and copyable on the page.
+    expect(screen.getByText("fatimakhalidddd0@gmail.com")).toBeInTheDocument();
   });
 });

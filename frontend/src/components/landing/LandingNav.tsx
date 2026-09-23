@@ -34,9 +34,9 @@ export default function LandingNav() {
         </nav>
 
         <div className="flex items-center gap-5 text-sm">
-          <Link className="text-slate transition-colors hover:text-paper" href="/login">
-            Sign in
-          </Link>
+          {/* No "Sign in" here on purpose: there is no hosted backend to sign in
+              to yet, and a dead link in the header is the first thing a
+              prospect clicks. Existing clients reach /login directly. */}
           <a
             className="rounded-sm border border-slate/40 px-4 py-2 text-paper transition-colors hover:border-slate"
             href={AUDIT_CONTACT_HREF}

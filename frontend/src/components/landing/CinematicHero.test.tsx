@@ -78,7 +78,7 @@ describe("CinematicHero", () => {
     // hand — and, until the backend is hosted, the form has nothing to post to.
     const cta = screen.getByTestId("hero-cta");
     expect(cta).toHaveTextContent(/free audit/i);
-    expect(cta.getAttribute("href")).toMatch(/^(mailto:|https:\/\/wa\.me\/)/);
+    expect(cta).toHaveAttribute("href", "#contact");
     expect(screen.queryByRole("link", { name: /create an account/i })).not.toBeInTheDocument();
   });
 

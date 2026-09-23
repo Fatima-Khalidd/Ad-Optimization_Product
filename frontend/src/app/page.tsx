@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import CinematicHero from "@/components/landing/CinematicHero";
 import LandingNav from "@/components/landing/LandingNav";
-import { AUDIT_CONTACT_HREF, AUDIT_CTA_LABEL } from "@/lib/contact";
+import { CONTACT_EMAIL, MAILTO_HREF, WHATSAPP_HREF } from "@/lib/contact";
 
 export const metadata: Metadata = {
   title: "Ad Spend Optimization — find the waste in your ad budget",
@@ -189,31 +189,55 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Close */}
-      <section className="border-t border-slate/15">
+      {/* Close — the contact block every call to action scrolls to. The address
+          is plain selectable text, not only a mailto: link, because a mailto on
+          a machine with no mail client configured does nothing at all. */}
+      <section className="border-t border-slate/15" id="contact">
         <div className="mx-auto max-w-5xl px-6 py-28">
           <h2 className="max-w-2xl font-display text-3xl leading-tight sm:text-4xl">
             Find out what your account is wasting.
           </h2>
           <p className="mt-6 max-w-2xl font-body leading-relaxed text-slate">
             We are taking on a small number of businesses for a free first audit &mdash; you send
-            one export, we send back the report and walk you through it. No fee and no obligation
-            to continue.
+            one export, we send back the report and walk you through it. No fee, no obligation to
+            continue, and no access to your ad account.
           </p>
-          <div className="mt-10 flex flex-wrap items-center gap-4">
-            <a
-              className="inline-flex items-center justify-center rounded-sm bg-teal px-6 py-3 text-sm font-medium text-ink transition-colors hover:bg-teal/85"
-              href={AUDIT_CONTACT_HREF}
-            >
-              {AUDIT_CTA_LABEL}
-            </a>
-            <Link
-              className="inline-flex items-center justify-center rounded-sm border border-slate/40 px-6 py-3 text-sm font-medium text-paper transition-colors hover:border-slate"
-              href="/login"
-            >
-              Existing client? Sign in
-            </Link>
+
+          <div className="mt-12 grid gap-10 sm:grid-cols-2">
+            {WHATSAPP_HREF ? (
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-slate">WhatsApp</p>
+                <a
+                  className="mt-3 inline-flex items-center justify-center rounded-sm bg-teal px-6 py-3 text-sm font-medium text-ink transition-colors hover:bg-teal/85"
+                  href={WHATSAPP_HREF}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Message us on WhatsApp
+                </a>
+              </div>
+            ) : null}
+
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-slate">Email</p>
+              <p className="mt-3 font-display text-xl break-all text-paper">
+                <a className="transition-colors hover:text-teal" href={MAILTO_HREF}>
+                  {CONTACT_EMAIL}
+                </a>
+              </p>
+              <p className="mt-3 font-body text-sm leading-relaxed text-slate">
+                Tell us roughly what you spend a month and which platform. We will reply with the
+                one export we need.
+              </p>
+            </div>
           </div>
+
+          <p className="mt-14 text-sm text-slate">
+            Already a client?{" "}
+            <Link className="text-teal underline underline-offset-4" href="/login">
+              Sign in
+            </Link>
+          </p>
         </div>
       </section>
     </main>
