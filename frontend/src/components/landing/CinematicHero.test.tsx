@@ -63,14 +63,23 @@ describe("CinematicHero", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: /money leaking out of your ads/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /create an account/i })).toHaveAttribute(
-      "href",
-      "/signup",
-    );
     expect(screen.getByRole("link", { name: /how it works/i })).toHaveAttribute(
       "href",
       "#how-it-works",
     );
+  });
+
+  it("sends the main call to action to a human, not to self-serve sign-up", () => {
+    setReducedMotion(true);
+
+    render(<CinematicHero />);
+
+    // Sign-up is not the front door while the first clients are onboarded by
+    // hand — and, until the backend is hosted, the form has nothing to post to.
+    const cta = screen.getByTestId("hero-cta");
+    expect(cta).toHaveTextContent(/free audit/i);
+    expect(cta.getAttribute("href")).toMatch(/^(mailto:|https:\/\/wa\.me\/)/);
+    expect(screen.queryByRole("link", { name: /create an account/i })).not.toBeInTheDocument();
   });
 
   it("hides the decorative film from assistive technology", async () => {

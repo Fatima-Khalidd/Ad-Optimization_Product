@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { AUDIT_CONTACT_HREF, AUDIT_CTA_LABEL } from "@/lib/contact";
+
 const SECTIONS = [
   { href: "#how-it-works", label: "How it works" },
   { href: "#method", label: "Method" },
@@ -35,12 +37,12 @@ export default function LandingNav() {
           <Link className="text-slate transition-colors hover:text-paper" href="/login">
             Sign in
           </Link>
-          <Link
+          <a
             className="rounded-sm border border-slate/40 px-4 py-2 text-paper transition-colors hover:border-slate"
-            href="/signup"
+            href={AUDIT_CONTACT_HREF}
           >
-            Get started
-          </Link>
+            {AUDIT_CTA_LABEL}
+          </a>
         </div>
       </div>
     </header>

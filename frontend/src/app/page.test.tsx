@@ -42,13 +42,16 @@ describe("landing page", () => {
     expect(screen.getAllByText(/JazzCash, Easypaisa/).length).toBeGreaterThan(0);
   });
 
-  it("offers a way in", () => {
+  it("routes every call to action to a free audit rather than self-serve sign-up", () => {
     render(<Home />);
 
-    const signups = screen.getAllByRole("link", { name: /create an account/i });
-    expect(signups.length).toBeGreaterThan(0);
-    for (const link of signups) {
-      expect(link).toHaveAttribute("href", "/signup");
+    const ctas = screen.getAllByRole("link", { name: /free audit/i });
+    expect(ctas.length).toBeGreaterThan(0);
+    for (const link of ctas) {
+      expect(link.getAttribute("href")).toMatch(/^(mailto:|https:\/\/wa\.me\/)/);
     }
+    // A prospect must never be handed a form that cannot submit.
+    expect(screen.queryByRole("link", { name: /create an account/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^get started$/i })).not.toBeInTheDocument();
   });
 });

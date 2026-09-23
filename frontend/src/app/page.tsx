@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import CinematicHero from "@/components/landing/CinematicHero";
 import LandingNav from "@/components/landing/LandingNav";
+import { AUDIT_CONTACT_HREF, AUDIT_CTA_LABEL } from "@/lib/contact";
 
 export const metadata: Metadata = {
   title: "Ad Spend Optimization — find the waste in your ad budget",
@@ -194,18 +195,23 @@ export default function Home() {
           <h2 className="max-w-2xl font-display text-3xl leading-tight sm:text-4xl">
             Find out what your account is wasting.
           </h2>
+          <p className="mt-6 max-w-2xl font-body leading-relaxed text-slate">
+            We are taking on a small number of businesses for a free first audit &mdash; you send
+            one export, we send back the report and walk you through it. No fee and no obligation
+            to continue.
+          </p>
           <div className="mt-10 flex flex-wrap items-center gap-4">
-            <Link
+            <a
               className="inline-flex items-center justify-center rounded-sm bg-teal px-6 py-3 text-sm font-medium text-ink transition-colors hover:bg-teal/85"
-              href="/signup"
+              href={AUDIT_CONTACT_HREF}
             >
-              Create an account
-            </Link>
+              {AUDIT_CTA_LABEL}
+            </a>
             <Link
               className="inline-flex items-center justify-center rounded-sm border border-slate/40 px-6 py-3 text-sm font-medium text-paper transition-colors hover:border-slate"
               href="/login"
             >
-              Sign in
+              Existing client? Sign in
             </Link>
           </div>
         </div>

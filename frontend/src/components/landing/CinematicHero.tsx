@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { AUDIT_CONTACT_HREF, AUDIT_CTA_LABEL } from "@/lib/contact";
 import { useReducedMotion } from "@/lib/motion";
 
 export const HERO_POSTER = "/hero/flow-poster.jpg";
@@ -91,12 +92,13 @@ export default function CinematicHero() {
         </p>
 
         <div className="mt-10 flex flex-wrap items-center gap-4">
-          <Link
+          <a
             className="inline-flex items-center justify-center rounded-sm bg-teal px-6 py-3 text-sm font-medium text-ink transition-colors hover:bg-teal/85"
-            href="/signup"
+            data-testid="hero-cta"
+            href={AUDIT_CONTACT_HREF}
           >
-            Create an account
-          </Link>
+            {AUDIT_CTA_LABEL}
+          </a>
           <Link
             className="inline-flex items-center justify-center rounded-sm border border-slate/40 px-6 py-3 text-sm font-medium text-paper transition-colors hover:border-slate"
             href="#how-it-works"
@@ -107,6 +109,7 @@ export default function CinematicHero() {
 
         <p className="mt-8 text-sm text-slate">
           Built for businesses spending Rs. 100,000&ndash;500,000 a month on Meta and Google.
+          No ad account access &mdash; one CSV export is enough.
         </p>
       </div>
     </section>
