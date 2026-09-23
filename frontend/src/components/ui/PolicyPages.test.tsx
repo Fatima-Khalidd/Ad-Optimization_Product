@@ -21,12 +21,32 @@ describe("policy pages", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Refund Policy" })).toBeInTheDocument();
   });
 
-  it("marks every unwritten clause with TODO-OWNER so none ships unnoticed", () => {
+  // Was the inverse until the owner wrote the copy: the pages are now live text a
+  // prospect reads before deciding whether to hand over their data, so a leftover
+  // placeholder is worse than a missing clause.
+  it("ships no placeholder text on any policy page", () => {
     for (const Page of [TermsPage, PrivacyPage, RefundsPage]) {
       const { container, unmount } = render(<Page />);
-      expect(container.textContent).toContain("TODO-OWNER");
+      expect(container.textContent).not.toContain("TODO");
       unmount();
     }
+  });
+
+  it("gives a contact address on every policy page", () => {
+    for (const Page of [TermsPage, PrivacyPage, RefundsPage]) {
+      const { container, unmount } = render(<Page />);
+      expect(container.querySelector('a[href^="mailto:"]')).not.toBeNull();
+      unmount();
+    }
+  });
+
+  it("states the two fee rules the product enforces in code", () => {
+    render(<TermsPage />);
+    const text = document.body.textContent ?? "";
+    // services/billing.py never charges a performance fee without an admin
+    // confirming the recovery first; the terms must not promise otherwise.
+    expect(text).toContain("confirmed with you first");
+    expect(text).toContain("no performance fee");
   });
 
   it("names the manual payment methods on the refund page", () => {
