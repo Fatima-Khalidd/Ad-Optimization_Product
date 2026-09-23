@@ -12,10 +12,13 @@ export default function LoginPage() {
         <h1 className="font-display text-4xl leading-tight">Welcome back.</h1>
       </div>
       <AuthForm mode="login" />
+      {/* Accounts are opened by us when a client starts, not by the visitor:
+          onboarding runs through a free audit first. Pointing at /signup here
+          would offer a stranger a form that only fails. */}
       <p className="text-sm text-slate">
         No account yet?{" "}
-        <Link className="text-teal underline underline-offset-4" href="/signup">
-          Create one
+        <Link className="text-teal underline underline-offset-4" href="/#contact">
+          Start with a free audit
         </Link>
       </p>
     </main>

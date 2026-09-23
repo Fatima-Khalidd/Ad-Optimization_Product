@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import CinematicHero from "@/components/landing/CinematicHero";
 import LandingNav from "@/components/landing/LandingNav";
@@ -236,10 +235,8 @@ export default function Home() {
           </div>
 
           <p className="mt-14 text-sm text-slate">
-            Already a client?{" "}
-            <Link className="text-teal underline underline-offset-4" href="/login">
-              Sign in
-            </Link>
+            Reports are delivered by hand while we onboard our first clients, so there is nothing
+            to sign up for &mdash; just send a message.
           </p>
         </div>
       </section>
