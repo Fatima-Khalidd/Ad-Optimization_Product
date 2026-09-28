@@ -44,6 +44,29 @@ def test_to_money_quantises_to_two_places_half_up(raw: float, expected: Decimal)
     assert value.as_tuple().exponent == -2
 
 
+def test_successful_analysis_remains_pending_when_auto_approval_is_disabled(
+    session: Session, client_row: Client, tmp_path: Path, monkeypatch
+):
+    from types import SimpleNamespace
+
+    from app.services import analysis
+
+    monkeypatch.setattr(
+        analysis, "get_settings", lambda: SimpleNamespace(auto_approve_analyses=False)
+    )
+    path = write_sample_csv(tmp_path / "manual-review.csv", days=30, seed=42, waste=WASTE)
+    upload = create_upload(session, client_row, path.name, path.read_bytes())
+    run = create_run(session, client_row, upload.id)
+
+    execute_run(run.id)
+
+    session.expire_all()
+    completed = session.get(AnalysisRun, run.id)
+    assert completed.status == "done"
+    assert completed.review_status == "pending"
+    assert completed.reviewed_at is None
+
+
 def test_session_scope_uses_the_same_database_as_get_session(session: Session, client_row: Client):
     upload = create_upload(session, client_row, "aug.csv", GOOD)
 
@@ -303,7 +326,9 @@ def test_execute_run_persists_every_dimension_segment_and_recommendation(
     run = session.get(AnalysisRun, run.id)
     assert run.status == "done"
     assert run.error_message is None
-    assert run.review_status == "pending", "approval is a Stage 6 admin action"
+    assert run.review_status == "approved"
+    assert run.reviewed_at is not None
+    assert run.review_note == "Automatically approved after successful analysis."
     assert run.headline_waste == to_money(headline_waste(expected))
 
     reports = session.scalars(

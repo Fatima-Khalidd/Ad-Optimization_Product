@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import { AUDIT_CONTACT_HREF, AUDIT_CTA_LABEL } from "@/lib/contact";
 import { useReducedMotion } from "@/lib/motion";
 
 export const HERO_POSTER = "/hero/flow-poster.jpg";
@@ -92,13 +91,13 @@ export default function CinematicHero() {
         </p>
 
         <div className="mt-10 flex flex-wrap items-center gap-4">
-          <a
+          <Link
             className="inline-flex items-center justify-center rounded-sm bg-teal px-6 py-3 text-sm font-medium text-ink transition-colors hover:bg-teal/85"
             data-testid="hero-cta"
-            href={AUDIT_CONTACT_HREF}
+            href="/signup"
           >
-            {AUDIT_CTA_LABEL}
-          </a>
+            Create account
+          </Link>
           <Link
             className="inline-flex items-center justify-center rounded-sm border border-slate/40 px-6 py-3 text-sm font-medium text-paper transition-colors hover:border-slate"
             href="#how-it-works"

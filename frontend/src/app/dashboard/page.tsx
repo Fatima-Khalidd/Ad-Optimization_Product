@@ -25,8 +25,7 @@ export default async function DashboardPage() {
     );
   }
 
-  // No approved report. Two different empty states, and they are not the same
-  // story: "you have not uploaded anything" vs "we are still checking it".
+  // No completed report yet. Keep the empty state distinct from a real API failure.
   const uploads = await getUploads();
   if (uploads.length > 0) {
     return (
@@ -36,8 +35,8 @@ export default async function DashboardPage() {
             Upload another export
           </Link>
         }
-        body="We review every analysis by hand before it reaches you, so the numbers on your invoice are numbers we stand behind. Your report appears here as soon as it is approved."
-        title="Your analysis is with our reviewer."
+        body="Your report appears here when an analysis is complete. Check the Upload page for processing status or validation errors."
+        title="No completed report yet."
       />
     );
   }

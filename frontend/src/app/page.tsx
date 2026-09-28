@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import CinematicHero from "@/components/landing/CinematicHero";
 import LandingNav from "@/components/landing/LandingNav";
-import { CONTACT_EMAIL, MAILTO_HREF, WHATSAPP_DISPLAY, WHATSAPP_HREF } from "@/lib/contact";
 
 export const metadata: Metadata = {
   title: "Ad Spend Optimization — find the waste in your ad budget",
@@ -77,11 +77,11 @@ const FAQ = [
   },
   {
     q: "How long does it take?",
-    a: "The analysis itself runs in seconds. Every report is then checked by a person before it reaches you, so nothing lands in your dashboard unreviewed.",
+    a: "The analysis runs automatically after you upload a valid CSV. Your report appears as soon as processing completes.",
   },
   {
-    q: "How do I pay?",
-    a: "JazzCash, Easypaisa, NayaPay or a bank transfer over Raast. You send the payment and submit the transaction ID; we confirm it against the account. No card, no gateway.",
+    q: "What plan or access do I get?",
+    a: "Pricing, access duration and any deal limits depend on the offer you purchase. Check that offer’s terms for the details.",
   },
 ] as const;
 
@@ -144,48 +144,20 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Pricing */}
+      {/* Offer details are intentionally set by the purchase offer, not hard-coded here. */}
       <section className="border-t border-slate/15" id="pricing">
         <div className="mx-auto max-w-5xl px-6 py-28">
-          <h2 className="font-display text-3xl sm:text-4xl">You pay a share of what you save</h2>
+          <h2 className="font-display text-3xl sm:text-4xl">Plans and access</h2>
           <p className="mt-6 max-w-2xl font-body leading-relaxed text-slate">
-            Published, because a page that argues against black boxes should not hide its own
-            price.
+            Pricing, access duration, and any usage limits are defined by the offer you purchase.
+            Your account is where you upload exports and use the analysis tools.
           </p>
-          <div className="mt-12 grid gap-12 md:grid-cols-2">
-            <div>
-              <p className="font-display text-4xl leading-none text-paper sm:text-5xl">
-                Rs. 15,000
-                <span className="ml-2 align-middle text-base text-slate">/ month</span>
-              </p>
-              <h3 className="mt-5 font-display text-xl">The base fee</h3>
-              <p className="mt-3 font-body leading-relaxed text-slate">
-                Covers the analysis itself — every upload, every report, every dimension, as often
-                as you want to run it.
-              </p>
-            </div>
-            <div>
-              <p className="font-display text-4xl leading-none text-teal sm:text-5xl">
-                20%
-                <span className="ml-2 align-middle text-base text-slate">of recovered waste</span>
-              </p>
-              <h3 className="mt-5 font-display text-xl">The performance fee</h3>
-              <p className="mt-3 font-body leading-relaxed text-slate">
-                Charged only on waste you actually recover, measured by comparing the flagged
-                segments before and after you act — and confirmed with you before it ever reaches
-                an invoice. If nothing is recovered, there is nothing to charge.
-              </p>
-            </div>
-          </div>
-          <p className="mt-12 max-w-2xl font-body leading-relaxed text-paper">
-            The first audit is free. You see the report, and the numbers behind it, before you pay
-            anything at all.
-          </p>
-          <p className="mt-12 max-w-2xl font-body leading-relaxed text-slate">
-            Payment is by JazzCash, Easypaisa, NayaPay or a bank transfer over Raast. You submit
-            the transaction ID and we confirm it — submitting an ID is a claim, not a payment, and
-            an invoice is only marked paid once the money is verified.
-          </p>
+          <Link
+            className="mt-8 inline-flex items-center justify-center rounded-sm bg-teal px-6 py-3 text-sm font-medium text-ink transition-colors hover:bg-teal/85"
+            href="/signup"
+          >
+            Create account
+          </Link>
         </div>
       </section>
 
@@ -204,56 +176,22 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Close — the contact block every call to action scrolls to. The address
-          is plain selectable text, not only a mailto: link, because a mailto on
-          a machine with no mail client configured does nothing at all. */}
       <section className="border-t border-slate/15" id="contact">
         <div className="mx-auto max-w-5xl px-6 py-28">
           <h2 className="max-w-2xl font-display text-3xl leading-tight sm:text-4xl">
-            Find out what your account is wasting.
+            Start analyzing your ad spend.
           </h2>
           <p className="mt-6 max-w-2xl font-body leading-relaxed text-slate">
-            We are taking on a small number of businesses for a free first audit &mdash; you send
-            one export, we send back the report and walk you through it. No fee, no obligation to
-            continue, and no access to your ad account.
+            Create an account, upload an export, and get a report without sharing access to your ad
+            account.
           </p>
 
-          <div className="mt-12 grid gap-10 sm:grid-cols-2">
-            {WHATSAPP_HREF ? (
-              <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-slate">WhatsApp</p>
-                <a
-                  className="mt-3 inline-flex items-center justify-center rounded-sm bg-teal px-6 py-3 text-sm font-medium text-ink transition-colors hover:bg-teal/85"
-                  href={WHATSAPP_HREF}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  Message us on WhatsApp
-                </a>
-                <p className="mt-3 font-body text-sm text-slate">
-                  Or save the number: <span className="text-paper">{WHATSAPP_DISPLAY}</span>
-                </p>
-              </div>
-            ) : null}
-
-            <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-slate">Email</p>
-              <p className="mt-3 font-display text-xl break-all text-paper">
-                <a className="transition-colors hover:text-teal" href={MAILTO_HREF}>
-                  {CONTACT_EMAIL}
-                </a>
-              </p>
-              <p className="mt-3 font-body text-sm leading-relaxed text-slate">
-                Tell us roughly what you spend a month and which platform. We will reply with the
-                one export we need.
-              </p>
-            </div>
-          </div>
-
-          <p className="mt-14 text-sm text-slate">
-            Reports are delivered by hand while we onboard our first clients, so there is nothing
-            to sign up for &mdash; just send a message.
-          </p>
+          <Link
+            className="mt-8 inline-flex items-center justify-center rounded-sm bg-teal px-6 py-3 text-sm font-medium text-ink transition-colors hover:bg-teal/85"
+            href="/signup"
+          >
+            Create account
+          </Link>
         </div>
       </section>
     </main>

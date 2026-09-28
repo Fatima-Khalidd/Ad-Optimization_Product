@@ -1,5 +1,11 @@
 # Getting the first 3 paying clients
 
+> **Status note (2026-09-28):** This is a historical service-led pilot plan, not the
+> current AppSumo launch plan. The public app now supports self-serve signup and automatic
+> report availability. Its AppSumo purchase verification, access limits, and deal pricing
+> have not been decided or implemented. Treat the outreach, monthly-fee, and manual-audit
+> sections below as background—not as the current buyer journey or marketplace offer.
+
 A plan for one person, working online, about 6 hours a week, with no budget and
 no client list. The goal is **3 paying pilots in 60 days**, not growth.
 
@@ -9,27 +15,23 @@ finished product and an account that can receive money.
 
 ---
 
-## 0. Fix these before you send the link to anyone
+## 0. Current launch gates
 
-The link is the first thing a prospect judges. Right now it fails on the exact
-dimension you are selling: trustworthiness. Four things, roughly a day's work.
+The public site now links to working self-serve signup, and successful analyses
+are available automatically when they finish. Before marketplace traffic:
 
-1. **Sign-up on the live site is broken.** The website is deployed; the backend
-   is not. A prospect who clicks "Create an account" gets an error. Either
-   deploy the backend (Supabase + Railway, per the README) **or** — better for
-   now — change the landing page buttons to "Get a free audit" pointing at a
-   WhatsApp link or a form. You do not want self-serve sign-ups yet anyway. The
-   first clients should come through you, personally.
-2. **The legal pages say `TODO-OWNER` in 16 places.** Terms, Privacy and Refunds
-   are linked in the footer of every page. A careful business owner — exactly
-   your buyer — will click them. Write them properly. Plain, short and honest
-   beats lawyerly.
-3. **Decide your two numbers.** You cannot sell without them: the monthly base
-   fee, and the percentage of recovered waste. See §5.
-4. **Produce one sample report PDF.** Run the synthetic data, export the PDF,
-   and write "SAMPLE — synthetic data" on the first page. This is your single
-   most valuable sales asset: it lets someone see the output before handing you
-   anything. Never imply it is a real client's account.
+1. **Choose purchase verification and entitlement rules.** Signup is currently
+   open. No AppSumo code is redeemed or checked, and access/usage limits are not
+   enforced. Do not represent the account flow as purchase-verified until the
+   chosen process is implemented.
+2. **Decide what AppSumo buyers receive.** Set the deal's price, access duration,
+   usage limits and support terms in the marketplace offer. These are intentionally
+   not selected by this document or hard-coded on the site.
+3. **Review the policies.** The Terms, Privacy and Refund pages are generic
+   product policies. Have the owner review them against the final offer and legal
+   requirements before launch.
+4. **Validate the data path.** Test real Meta and Google exports, document the
+   supported formats, and prepare a clearly labeled synthetic sample report.
 
 ---
 
@@ -307,30 +309,16 @@ the problem is either your price or your follow-up.
 
 ## 5. Pricing, and the paperwork you need
 
-**Your published price** — now live on the site:
+**AppSumo pricing and access terms are undecided.** Choose them in the offer
+before building purchase verification or entitlement enforcement. The website
+does not publish the former Rs. 15,000/month + 20% managed-service pricing.
+New accounts default to zero for the separate manual-invoice feature; those
+defaults are configurable with `NEW_CLIENT_BASE_FEE` and
+`NEW_CLIENT_PERFORMANCE_FEE_PCT`.
 
-- **Base fee:** Rs. 15,000/month. Below what a freelance ad manager or an
-  agency retainer costs, so you are never the expensive option.
-- **Share of recovered waste:** 20%.
-- **First audit free**, which is what the landing page offers.
-
-It is published deliberately. A page that argues against black boxes cannot
-hide its own price; "contact us for pricing" is the move your audience already
-resents from agencies.
-
-**Keep one thing off the site and use it in conversation.** For your first
-three clients, waive the base fee for the first two or three months and charge
-the performance share only: *"You pay nothing unless I find money and you
-actually get it back."* For someone with no case study yet, that is the most
-persuasive sentence available — and it is credible precisely because the
-product cannot bill a performance fee without a person confirming the recovery
-first. Keep it off the page, because a deal you publish becomes your permanent
-price.
-
-**The risk to watch** is not that Rs. 15,000 is too low. It is a first client
-who recovers nothing because they never acted on the report, leaving you paid
-nothing for real work. That is what the base fee is for, which is why the
-waiver is for pilots only.
+Do not promise usage caps, duration, or lifetime access until the corresponding
+entitlements are implemented. The remaining paperwork and data-handling
+agreement should describe the actual offer and be reviewed by the owner.
 
 **Write a one-page data agreement.** Half a page is fine. It should say: what
 you receive (ad performance figures, no customer data), what you do with it,

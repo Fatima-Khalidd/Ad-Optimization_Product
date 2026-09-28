@@ -40,20 +40,16 @@ describe("policy pages", () => {
     }
   });
 
-  it("states the two fee rules the product enforces in code", () => {
+  it("leaves purchase price and access terms to the original offer", () => {
     render(<TermsPage />);
     const text = document.body.textContent ?? "";
-    // services/billing.py never charges a performance fee without an admin
-    // confirming the recovery first; the terms must not promise otherwise.
-    expect(text).toContain("confirmed with you first");
-    expect(text).toContain("no performance fee");
+    expect(text).toContain("Pricing, access duration");
+    expect(text).toContain("account creation alone does not confirm a paid purchase");
   });
 
-  it("names the manual payment methods on the refund page", () => {
+  it("directs marketplace refund requests to the original platform", () => {
     render(<RefundsPage />);
     const text = document.body.textContent ?? "";
-    expect(text).toContain("JazzCash");
-    expect(text).toContain("Easypaisa");
-    expect(text).toContain("Raast");
+    expect(text).toContain("submit refund requests through that marketplace");
   });
 });

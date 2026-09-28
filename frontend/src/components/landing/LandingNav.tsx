@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-import { AUDIT_CONTACT_HREF, AUDIT_CTA_LABEL } from "@/lib/contact";
-
 const SECTIONS = [
   { href: "#how-it-works", label: "How it works" },
   { href: "#method", label: "Method" },
@@ -34,15 +32,15 @@ export default function LandingNav() {
         </nav>
 
         <div className="flex items-center gap-5 text-sm">
-          {/* No "Sign in" here on purpose: there is no hosted backend to sign in
-              to yet, and a dead link in the header is the first thing a
-              prospect clicks. Existing clients reach /login directly. */}
-          <a
+          <Link className="text-slate transition-colors hover:text-paper" href="/login">
+            Log in
+          </Link>
+          <Link
             className="rounded-sm border border-slate/40 px-4 py-2 text-paper transition-colors hover:border-slate"
-            href={AUDIT_CONTACT_HREF}
+            href="/signup"
           >
-            {AUDIT_CTA_LABEL}
-          </a>
+            Create account
+          </Link>
         </div>
       </div>
     </header>

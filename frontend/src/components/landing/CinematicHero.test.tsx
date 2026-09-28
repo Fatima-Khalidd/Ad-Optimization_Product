@@ -69,17 +69,14 @@ describe("CinematicHero", () => {
     );
   });
 
-  it("sends the main call to action to a human, not to self-serve sign-up", () => {
+  it("sends the main call to action to self-serve sign-up", () => {
     setReducedMotion(true);
 
     render(<CinematicHero />);
 
-    // Sign-up is not the front door while the first clients are onboarded by
-    // hand — and, until the backend is hosted, the form has nothing to post to.
     const cta = screen.getByTestId("hero-cta");
-    expect(cta).toHaveTextContent(/free audit/i);
-    expect(cta).toHaveAttribute("href", "#contact");
-    expect(screen.queryByRole("link", { name: /create an account/i })).not.toBeInTheDocument();
+    expect(cta).toHaveTextContent(/create account/i);
+    expect(cta).toHaveAttribute("href", "/signup");
   });
 
   it("hides the decorative film from assistive technology", async () => {

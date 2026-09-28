@@ -232,8 +232,8 @@ export default function UploadPanel() {
           ) : null}
           {run.status === "done" && run.review_status !== "approved" ? (
             <p className="mt-2 max-w-xl text-slate">
-              Your numbers are in and awaiting admin review. We check every run before it reaches you — the
-              report appears on your dashboard as soon as it is approved.
+              Your analysis is complete and awaiting approval. The report will appear when approval is
+              complete.
             </p>
           ) : null}
           {run.status === "done" && run.review_status === "approved" ? (

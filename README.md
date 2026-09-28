@@ -97,7 +97,7 @@ All routes below except the template download need the client session cookies fr
 curl -b cookies.txt -F "file=@august.csv" http://localhost:8000/api/uploads   # 201, or 422 + row errors
 curl -b cookies.txt -X POST http://localhost:8000/api/analyze/1               # 202 + run id
 curl -b cookies.txt http://localhost:8000/api/runs/1                          # queued|running|done|failed
-curl -b cookies.txt http://localhost:8000/api/reports/1                       # 404 until an admin approves
+curl -b cookies.txt http://localhost:8000/api/reports/1                       # 200 when analysis is done (default)
 ```
 
 `GET /api/uploads/template.csv` is public (no session cookie) - it contains no tenant data:
@@ -108,8 +108,8 @@ curl -O http://localhost:8000/api/uploads/template.csv                       # b
 
 Uploaded CSVs are written through the storage interface (`STORAGE_ROOT`, default
 `./storage`). Files over `MAX_UPLOAD_MB` are rejected with 413, and re-uploading identical
-bytes with 409. A report becomes visible only once its run is `done` **and** an admin has
-set `review_status = approved` (Stage 6).
+bytes with 409. By default a report becomes visible to its owner when its run is `done`;
+set `AUTO_APPROVE_ANALYSES=false` if your operation requires admin review.
 
 ### Tests
 
@@ -129,6 +129,8 @@ cd frontend && npm run lint && npx tsc --noEmit && npm test && npm run build
 | `CORS_ORIGINS` | backend | Comma-separated list of allowed browser origins. `*` is refused when `ENV=prod` |
 | `MAX_REQUEST_MB` | backend | Whole-request cap (413 above it). Must stay above `MAX_UPLOAD_MB` |
 | `MAX_UPLOAD_MB` | backend | Per-file upload cap |
+| `AUTO_APPROVE_ANALYSES` | backend | Defaults to `true`; completed reports become available to their owner without admin review. Set `false` to require review |
+| `NEW_CLIENT_BASE_FEE`, `NEW_CLIENT_PERFORMANCE_FEE_PCT` | backend | Optional defaults for separately issued manual invoices; default to zero, not AppSumo plan or license settings |
 | `SENTRY_DSN` | backend | Empty = Sentry off |
 | `STORAGE_BACKEND` | backend | `local` or `supabase` |
 | `STORAGE_ROOT` | backend | Directory used when `STORAGE_BACKEND=local` |
@@ -150,7 +152,8 @@ cd backend
 .venv/Scripts/python -m scripts.create_admin --email you@example.com
 ```
 
-- `/admin/runs` — approval queue. A client cannot see a report until its run is approved here.
+- `/admin/runs` — analysis queue. Reports are auto-approved after successful analysis by default;
+  set `AUTO_APPROVE_ANALYSES=false` to require manual approval.
 - `/admin/clients/<id>` — base fee, performance fee %, and per-client `PipelineConfig` overrides
   (unknown keys are refused with 422).
 - `/admin/invoices` — draft for a client and period, confirm the recovered-waste figure, then
@@ -325,45 +328,36 @@ Run the checklist below. Stage 8 is not done until every line is ticked **in pro
 
 ## Smoke-test checklist (production)
 
-- [ ] **BLOCKING — legal copy is real.** `/terms`, `/privacy` and `/refunds` ship with
-      literal `TODO-OWNER` placeholder text. Before the site is shared with any client,
-      every `TODO-OWNER` must be replaced with reviewed copy, and the liability and
-      governing-law wording specifically must be read and signed off by the owner — this
-      is not boilerplate to rubber-stamp. Find every remaining placeholder with:
-
-      ```bash
-      grep -rn "TODO-OWNER" frontend/src/app
-      ```
-
-      That command must return nothing before this checklist is considered started.
+- [ ] **BLOCKING — commercial access is decided.** Signup is currently open and does not
+      verify an AppSumo purchase, redeem a code, or enforce deal-specific access/usage
+      limits. Do not advertise that a purchase automatically provisions or limits an
+      account until the owner has chosen those rules and the matching entitlement flow
+      has been implemented.
+- [ ] **BLOCKING — legal copy matches the offer.** `/terms`, `/privacy` and `/refunds`
+      are generic product policies, not legal advice. Have the owner review them against
+      the final price, access duration, usage limits, marketplace refund process and
+      governing law before launch.
 
 Run the rest in one sitting, in this order, on the live Vercel domain. Use a real browser,
 not curl — the point is to prove the cookie, CORS and storage paths work end to end.
 
 - [ ] **Signup.** `/signup` with a fresh email creates a client account and lands on the
-      dashboard. The dashboard shows the "no uploads yet" empty state.
+      dashboard. The dashboard shows the "no uploads yet" empty state. Confirm the
+      open-signup behavior matches your purchase-verification plan before marketplace traffic.
 - [ ] **Upload.** `/dashboard/upload` accepts `backend/tests/fixtures/sample_30d.csv`. The
       file is accepted, row count and date range are shown, and the run status moves from
       queued to done.
-- [ ] **Nothing leaks before approval.** As that client, the dashboard still shows the
-      "awaiting review" state — an unapproved run is never visible.
-- [ ] **Admin approve.** Sign in as the admin in a second browser profile. `/admin/runs`
-      lists the pending run with its headline waste and config snapshot. Approve it with a
-      note. `/admin/audit` shows a `run.approve` entry naming the admin.
-- [ ] **Dashboard.** Back as the client, the dashboard now shows the hero, total spend,
+- [ ] **Automatic report availability.** Once the run is done, the client can open its
+      report and PDF without admin approval. A still-running report must remain unavailable.
+- [ ] **Dashboard.** The dashboard shows total spend,
       estimated waste and recovery %, the per-dimension breakdown tables with flagged rows
       in coral, and the recommendations list. Check it once at mobile width.
 - [ ] **PDF.** `/api/reports/{run_id}/pdf` downloads, and the numbers on the cover match the
       dashboard exactly.
-- [ ] **Invoice.** As admin, draft an invoice for the period, edit and confirm the recovered
-      waste, then issue it. The client's `/dashboard/billing` shows it with the amount, due
-      date and the payment accounts.
-- [ ] **Manual payment confirmed.** As the client, submit a payment: method, transaction ID,
-      amount, date, and a screenshot. The invoice moves to "payment submitted". As admin,
-      confirm it. The invoice becomes **paid**, and `/admin/audit` has a `payment.confirm`
-      entry.
-- [ ] **A reused transaction ID is refused.** Submitting the same method and transaction ID
-      again returns an error, not a second payment.
+- [ ] **Optional manual invoicing.** Only if you intend to separately invoice a customer
+      outside the marketplace purchase: draft and issue an invoice, submit a test payment,
+      confirm it as admin, and verify duplicate transaction IDs are refused. This is not
+      AppSumo checkout or deal-entitlement handling.
 - [ ] **Tenant isolation.** Signed in as client A, opening client B's report or invoice URL
       returns 404, not 403 and not the data.
 - [ ] **Files really are in Supabase.** The Supabase Storage bucket lists the uploaded CSV

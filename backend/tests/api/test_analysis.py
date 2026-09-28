@@ -49,6 +49,7 @@ def test_analyze_returns_202_and_the_run_reaches_done(
     # TestClient runs BackgroundTasks inside the request, so the job is already finished.
     polled = client_a.get(f"/api/runs/{run['id']}").json()
     assert polled["status"] == "done", polled
+    assert polled["review_status"] == "approved"
     assert polled["error_message"] is None
     assert Decimal(polled["headline_waste"]) > 0
     db.expire_all()
@@ -156,17 +157,11 @@ def test_report_numbers_match_the_pipeline_on_the_same_file(
     assert report["config_snapshot"] == PipelineConfig().to_dict()
 
 
-def test_report_is_404_while_pending_and_200_once_approved(
+def test_completed_report_is_available_without_admin_approval(
     client_a: TestClient, tmp_path: Path, db: Session
 ):
     upload_id = _upload(client_a, _sample_bytes(tmp_path))
     run_id = client_a.post(f"/api/analyze/{upload_id}").json()["id"]
-
-    pending = client_a.get(f"/api/reports/{run_id}")
-    assert pending.status_code == 404
-    assert client_a.get("/api/reports/latest").status_code == 404
-
-    _approve(db, run_id)
 
     approved = client_a.get(f"/api/reports/{run_id}")
     assert approved.status_code == 200

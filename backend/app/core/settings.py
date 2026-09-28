@@ -1,8 +1,9 @@
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 _DEV_SECRET = "dev-only-insecure-secret"
@@ -23,6 +24,8 @@ class Settings(BaseSettings):
     # --- payments (docs/PLAN.md section 6, Stage 7) ---
     payment_provider: str = "manual"
     max_proof_mb: int = 5
+    new_client_base_fee: Decimal = Field(default=Decimal("0"), ge=0)
+    new_client_performance_fee_pct: Decimal = Field(default=Decimal("0"), ge=0, le=100)
 
     # --- file storage (docs/PLAN.md section 1 #9) ---
     storage_backend: str = "local"  # "supabase" arrives in Stage 8
@@ -34,6 +37,7 @@ class Settings(BaseSettings):
     refresh_token_days: int = 7
     # Off by default so http://127.0.0.1 development works; never off in production.
     cookie_secure: bool = False
+    auto_approve_analyses: bool = True
 
     @model_validator(mode="after")
     def _reject_insecure_prod_defaults(self) -> "Settings":

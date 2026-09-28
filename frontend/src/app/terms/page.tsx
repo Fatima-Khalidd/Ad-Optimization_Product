@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <PolicyLayout title="Terms of Service" updated="23 September 2026">
+    <PolicyLayout title="Terms of Service" updated="28 September 2026">
       <section>
         <h2>1. Who we are</h2>
         <p>
@@ -29,7 +29,7 @@ export default function TermsPage() {
         <p>
           You upload an export of your advertising data. We analyse it, flag segments whose cost per
           conversion is far above your account average, estimate the spend being wasted, and
-          recommend budget cuts. Every report is reviewed by us before you see it.
+          recommend budget cuts. Completed reports are available in your account automatically.
         </p>
       </section>
       <section>
@@ -59,47 +59,29 @@ export default function TermsPage() {
         </p>
       </section>
       <section>
-        <h2>6. Free audits</h2>
+        <h2>6. Account access and offers</h2>
         <p>
-          We sometimes run a first analysis free of charge, to show you what the service produces.
-          A free audit carries no fee and no obligation to continue. You can ask us to delete the
-          file you sent and the report it produced at any time, and we will.
+          Creating an account lets you use the analysis features. Pricing, access duration, and any
+          usage or feature limits are set out in the offer through which you purchase access; account
+          creation alone does not confirm a paid purchase or change those terms.
         </p>
       </section>
       <section>
         <h2>7. Fees and payment</h2>
         <p>
-          Fees are a monthly base fee plus a performance fee. The base fee covers running the
-          analysis and is charged monthly. The performance fee is a percentage of recovered waste —
-          money you were previously spending on flagged segments and no longer are, measured by
-          comparing the same segments before and after you acted.
-        </p>
-        <p>
-          The exact base fee and percentage are the ones written in your own agreement with us, and
-          they do not change without your written consent. A performance fee is only ever charged on
-          recovery we have confirmed with you first; it is never calculated automatically and
-          invoiced without you seeing it. If nothing was recovered in a period, no performance fee
-          is charged for that period.
-        </p>
-        <p>
-          Invoices are due within 14 days of being issued. Payment is made to the accounts listed on
-          the invoice — JazzCash, Easypaisa, NayaPay, or a bank transfer via Raast or IBAN — after
-          which you submit the transaction reference. Submitting a reference is a claim that you
-          have paid; an invoice is only marked paid once we have verified the money against our own
-          records.
+          Any price, billing schedule, renewal, or payment terms are those shown by the purchase
+          offer and the platform that processes it. We do not collect payment details when you create
+          an account. If we separately issue an invoice under a written agreement, its stated terms
+          apply to that invoice.
         </p>
       </section>
       <section>
         <h2>8. Ending the agreement</h2>
         <p>
-          Either of us can end the agreement by giving 14 days&rsquo; notice in writing, including by
-          email. There is no minimum term and no cancellation charge. Invoices already issued for
-          work already done remain payable, and any performance fee for recovery already confirmed
-          remains payable. We will not issue new invoices after the notice period ends.
-        </p>
-        <p>
-          On request after you leave, we will delete your uploads and reports. We keep invoices and
-          payment records for as long as the law requires — see the Privacy Policy.
+          Cancellation, expiry, and continued access are governed by the offer through which you
+          purchased access. You can request deletion of your uploads and reports as described in the
+          Privacy Policy. Records we are legally required to retain may be kept for the applicable
+          period.
         </p>
       </section>
       <section>

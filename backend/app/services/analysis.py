@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db import session_scope
 from app.core.errors import InvalidUploadError, NotFoundError
+from app.core.settings import get_settings
 from app.models import AdDataUpload, AnalysisRun, Client, SegmentMetric, WasteReport
 from app.models import Recommendation as RecommendationRow
 from app.models._types import utcnow
@@ -236,6 +237,10 @@ def _persist_analysis(session: Session, run: AnalysisRun) -> None:
     run.headline_waste = to_money(headline_waste(results))
     run.account_total_spend = to_money(account_total_spend(result.df))
     run.status = "done"
+    if get_settings().auto_approve_analyses:
+        run.review_status = "approved"
+        run.reviewed_at = utcnow()
+        run.review_note = "Automatically approved after successful analysis."
     session.commit()
 
 
@@ -243,7 +248,11 @@ ZERO = Decimal("0.00")
 
 
 def get_report(session: Session, client_id: int, run_id: int) -> ReportOut:
-    """Clients only ever see finished, admin-approved runs (docs/PLAN.md section 4)."""
+    """Return a finished, approved report to its owner.
+
+    Successful runs are approved automatically by default; deployments can turn that off
+    and keep the existing admin-review gate.
+    """
     run = get_run(session, client_id, run_id)
     if run.status != "done" or run.review_status != "approved":
         raise NotFoundError("report not found")

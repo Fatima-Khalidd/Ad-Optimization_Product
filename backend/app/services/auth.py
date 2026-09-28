@@ -8,8 +8,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, verify_password
+from app.core.settings import get_settings
 from app.models import Client, User
-from app.pipeline.config import PipelineConfig
 
 # NUMERIC(14,2) - quantise on the way in so Decimals match what the DB gives back.
 MONEY_SCALE = Decimal("0.01")
@@ -54,13 +54,13 @@ def _create_user(session: Session, email: str, password: str, role: str) -> User
 def signup_client(session: Session, email: str, password: str, business_name: str) -> User:
     """Create a client User plus its Client row. There is deliberately no role parameter."""
     user = _create_user(session, email, password, "client")
-    defaults = PipelineConfig()
+    settings = get_settings()
     session.add(
         Client(
             user_id=user.id,
             business_name=business_name.strip(),
-            base_fee=defaults.base_fee.quantize(MONEY_SCALE),
-            performance_fee_pct=defaults.performance_fee_pct.quantize(MONEY_SCALE),
+            base_fee=settings.new_client_base_fee.quantize(MONEY_SCALE),
+            performance_fee_pct=settings.new_client_performance_fee_pct.quantize(MONEY_SCALE),
         )
     )
     try:

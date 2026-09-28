@@ -176,7 +176,7 @@ describe("UploadPanel", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("file is larger than 20 MB");
   });
 
-  it("starts a run, polls every 2 seconds, and stops at 'awaiting admin review'", async () => {
+  it("shows the approval-required state when automatic approval is disabled", async () => {
     vi.useFakeTimers();
     const fetchMock = vi
       .fn()
@@ -204,7 +204,7 @@ describe("UploadPanel", () => {
     expect(screen.getByRole("status")).toHaveTextContent(/Running/);
 
     await vi.advanceTimersByTimeAsync(2000);
-    await vi.waitFor(() => expect(screen.getByText(/awaiting admin review/i)).toBeInTheDocument());
+    await vi.waitFor(() => expect(screen.getByText(/awaiting approval/i)).toBeInTheDocument());
     expect(screen.getByRole("status")).toHaveTextContent(/Done/);
 
     const callsAfterDone = fetchMock.mock.calls.length;

@@ -5,7 +5,7 @@ It adds the details the spec leaves open and fixes a few spec issues that would 
 
 Each stage ends with a **checkpoint**: you review and test it, and nothing moves to the next stage until you approve.
 
-Step-by-step implementation plans (Superpowers `writing-plans` format, one per stage) live in `docs/superpowers/plans/`: `INTERFACES.md` (the cross-stage contract every plan follows), then Stage 0 `2026-09-15-stage-0-scaffold-and-models.md`, Stage 1 `2026-09-15-stage-1-analysis-pipeline.md`, Stage 2 `2026-09-16-stage-2-auth.md`, Stage 3 `2026-09-16-stage-3-upload-and-analysis-api.md`, Stage 4 `2026-09-16-stage-4-client-dashboard.md`, Stage 5 `2026-09-16-stage-5-pdf-report.md`, Stage 6 `2026-09-16-stage-6-admin-panel.md`, Stage 7 `2026-09-16-stage-7-manual-billing.md`, Stage 8 `2026-09-16-stage-8-hardening-and-deploy.md`. Build status (2026-09-18): Stages 0-5 are complete and merged to `main` (setup, analysis engine, auth, upload/analysis API, client dashboard, PDF report). Stage 6 (admin panel) is in progress; Stages 7-8 not started.
+Step-by-step implementation plans (Superpowers `writing-plans` format, one per stage) live in `docs/superpowers/plans/`: `INTERFACES.md` (the cross-stage contract every plan follows), then Stage 0 `2026-09-15-stage-0-scaffold-and-models.md`, Stage 1 `2026-09-15-stage-1-analysis-pipeline.md`, Stage 2 `2026-09-16-stage-2-auth.md`, Stage 3 `2026-09-16-stage-3-upload-and-analysis-api.md`, Stage 4 `2026-09-16-stage-4-client-dashboard.md`, Stage 5 `2026-09-16-stage-5-pdf-report.md`, Stage 6 `2026-09-16-stage-6-admin-panel.md`, Stage 7 `2026-09-16-stage-7-manual-billing.md`, Stage 8 `2026-09-16-stage-8-hardening-and-deploy.md`. Build status (2026-09-28): Stages 0-7 are implemented in the repository. Production deployment and Stage 8 production smoke checks are not verified here. Public signup and automatic report availability are enabled by default. AppSumo purchase verification, code redemption, and deal-specific entitlement enforcement are not implemented; the offer rules must be decided before that work can be scoped.
 
 ---
 
@@ -28,7 +28,7 @@ Step-by-step implementation plans (Superpowers `writing-plans` format, one per s
 2. **Benchmark against the account average, not the best segment.** The spec compares each segment to the best segment's CPA. A small segment with 2 conversions at a low CPA would make everything else look wasteful. Default benchmark: the dimension's overall CPA across significant segments. "Best significant segment" stays available as a config option (`BENCHMARK_MODE`).
 3. **Real ad exports don't fit a single flat CSV.** Meta limits which breakdowns you can combine in one export: time-of-day usually can't be combined with age or placement. The loader will accept rows where some dimensions are blank, and each dimension is analyzed only on rows that have it. Stage 3 also adds a downloadable template CSV. Header mapping for real Meta/Google export columns is also planned for Stage 3.
 4. **New tables in the data model:**
-   - `analysis_runs`: one per upload analysis, holding a **config snapshot**. The admin approves the run, not three separate per-dimension reports.
+   - `analysis_runs`: one per upload analysis, holding a **config snapshot**. Successful runs are auto-approved by default; deployments may require admin review.
    - `segment_metrics`: the per-segment numbers behind the breakdown table.
    - `payment_methods` and `payments`: the accounts clients pay into (JazzCash, Easypaisa, NayaPay, bank via Raast), and each payment a client reports with its transaction ID. No subscriptions or webhooks in the MVP (see Stage 7).
    - `audit_log`: records every approval and fee confirmation, so disputes can be settled.
@@ -205,7 +205,7 @@ Sizes are relative: S is small, M is medium, L is large. Each stage ends in a ch
    - The teal/coral split matches the actual waste share.
    - The waste count-up is synced to the coral drip, and the animation plays once on load.
    - Lazy-loaded (`dynamic(..., { ssr: false })`) so the tables never wait on Three.js.
-- Empty states: no uploads yet, or a run awaiting admin review.
+- Empty states: no uploads yet, or a run still processing. Automatic report approval is configurable for deployments that require manual review.
 - **Done when:** the dashboard renders real data, reduced motion shows the static version, and it works at mobile width.
 
 ### Stage 5 — PDF report (S)
@@ -250,7 +250,7 @@ Rules:
 - Deploy: Supabase Postgres (backups on), backend on Railway or Render, frontend on Vercel, S3-compatible file storage.
 - Seeded demo client for sales demos. Smoke-test checklist in the README.
 - Terms, Privacy and Refund policy pages (you supply the wording). Clients expect them, and every gateway requires them later.
-- **Done when:** the full flow works in production (signup → upload → admin approve → dashboard → PDF → invoice → manual payment confirmed).
+- **Done when:** the self-serve flow works in production (signup → upload → automatic analysis → dashboard → PDF) and the remaining production smoke checks pass. Manual invoices are a separate optional operator workflow.
 
 ---
 

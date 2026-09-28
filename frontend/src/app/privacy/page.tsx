@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <PolicyLayout title="Privacy Policy" updated="23 September 2026">
+    <PolicyLayout title="Privacy Policy" updated="28 September 2026">
       <section>
         <h2>1. Who controls your data</h2>
         <p>
@@ -53,9 +53,9 @@ export default function PrivacyPage() {
           accessible, and are only served back to the account that owns them.
         </p>
         <p>
-          If you send us an export by email or WhatsApp — for a free audit, for example — that file
-          also sits in that mailbox and on our own computer. We delete it on request, and we delete
-          it by default once the audit it was sent for is finished and delivered.
+          If you choose to send us an export by email or WhatsApp for support, that file also sits in
+          that mailbox and on our own computer. We delete it on request and when it is no longer
+          needed to resolve your request.
         </p>
       </section>
       <section>

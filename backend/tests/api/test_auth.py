@@ -30,8 +30,8 @@ def test_signup_returns_201_with_the_me_shape_and_both_cookies(api, db):
     assert set(body["client"]) == {"id", "business_name", "base_fee", "performance_fee_pct"}
     assert body["client"]["business_name"] == "Karachi Kicks"
     # pydantic v2 renders Decimal as a JSON string.
-    assert body["client"]["base_fee"] == "15000.00"
-    assert body["client"]["performance_fee_pct"] == "20.00"
+    assert body["client"]["base_fee"] == "0.00"
+    assert body["client"]["performance_fee_pct"] == "0.00"
 
     assert api.cookies.get("access_token")
     assert api.cookies.get("refresh_token")

@@ -108,6 +108,9 @@ def test_auth_settings_have_spec_defaults(monkeypatch):
     assert settings.access_token_minutes == 15
     assert settings.refresh_token_days == 7
     assert settings.cookie_secure is False
+    assert settings.auto_approve_analyses is True
+    assert settings.new_client_base_fee == 0
+    assert settings.new_client_performance_fee_pct == 0
 
 
 def test_cookie_secure_is_forced_on_in_prod(monkeypatch):
@@ -135,3 +138,25 @@ def test_token_lifetimes_come_from_the_environment(monkeypatch):
     assert settings.access_token_minutes == 30
     assert settings.refresh_token_days == 14
     assert settings.cookie_secure is True
+
+
+def test_auto_approval_can_be_disabled_from_the_environment(monkeypatch):
+    monkeypatch.setenv("ENV", "dev")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./x.db")
+    monkeypatch.setenv("SECRET_KEY", "s")
+    monkeypatch.setenv("AUTO_APPROVE_ANALYSES", "false")
+
+    assert Settings(_env_file=None).auto_approve_analyses is False
+
+
+def test_new_client_invoice_defaults_can_be_set_from_the_environment(monkeypatch):
+    monkeypatch.setenv("ENV", "dev")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///./x.db")
+    monkeypatch.setenv("SECRET_KEY", "s")
+    monkeypatch.setenv("NEW_CLIENT_BASE_FEE", "1200.50")
+    monkeypatch.setenv("NEW_CLIENT_PERFORMANCE_FEE_PCT", "15")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.new_client_base_fee == 1200.50
+    assert settings.new_client_performance_fee_pct == 15

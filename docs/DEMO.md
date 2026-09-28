@@ -82,14 +82,16 @@ it is exactly the kind of detail a boss tests you on.
 
 Open it. Same numbers, plus a page explaining the method.
 
-### 4. Switch to the admin window (2 minutes) — `/admin/runs`
+### 4. Switch to the admin window (2 minutes) — `/admin`
 
-> "Nothing reaches a client until I've checked it. This is the approval queue — I see the
-> numbers before they do, so we never argue about a figure after the fact."
+> "Reports are available to clients as soon as analysis completes. This area lets the
+> operator inspect run history, manage accounts, and handle any separately agreed billing."
 
-Then `/admin/invoices`:
+If demonstrating `/admin/invoices`, frame it as the optional manual invoicing workflow,
+not AppSumo checkout or a required part of self-service:
 
-> "Pricing is a small base fee plus a share of what we actually recovered — not a flat retainer."
+> "The application includes manual invoicing for customers who have a separate written
+> agreement. Marketplace purchase terms are handled separately."
 
 Draft an invoice for Demo Retail Co (period: last month). Walk through the row:
 
@@ -99,7 +101,7 @@ Draft an invoice for Demo Retail Co (period: last month). Walk through the row:
 
 **The point:** this is the part that makes the pricing model credible rather than a slogan.
 
-### 5. The payment flow (90 seconds)
+### 5. Optional manual payment flow (90 seconds)
 
 Issue the invoice. Switch to the client window → `/dashboard/billing`:
 
@@ -115,22 +117,23 @@ Back to the admin window → `/admin/payments` → Confirm.
 
 > "Only I can mark money as received. Now it's paid."
 
-**The point:** it's built for how Pakistani SMEs really pay, and it can't be gamed.
+**The point:** this optional operator workflow verifies manually submitted payments.
+It is not used to process AppSumo purchases.
 
 ### 6. Close (30 seconds)
 
-> "That's the full loop: upload, detect, approve, report, invoice, get paid. It runs on a
-> stack that costs about $25 a month to host. What's left before a first paying client is the
-> legal copy, our actual pricing numbers, and pointing it at the production database."
+> "That's the product loop: create an account, upload, analyze, and get a report. The
+> marketplace offer determines pricing and access terms. Purchase verification, deal limits,
+> real-export validation, and production smoke tests still need to be completed before launch."
 
 ---
 
 ## Questions you'll probably get
 
 **"How do we know the numbers are right?"**
-Every figure is computed by one tested engine and re-checked by hand against the source data.
-Each analysis stores a snapshot of the exact settings used, so any report can be reproduced
-months later. And nothing reaches a client without my approval.
+Every figure is computed by one tested engine. Each analysis stores a snapshot of the exact
+settings used, so any report can be reproduced months later. Reports are auto-approved on
+completion by default; deployments can require manual review with `AUTO_APPROVE_ANALYSES=false`.
 
 **"What if a client disputes an invoice?"**
 The audit log records every approval and every fee confirmation with who did it and when.
@@ -155,8 +158,9 @@ Not yet — it runs locally today. Going live is a deployment step, not more bui
 for the database, Railway for the API, Vercel for the site. The runbook is written.
 
 **"How long until we can sell it?"**
-The software is done. What's outstanding is commercial, not technical: our pricing numbers,
-the terms and privacy wording, and a first client's real export to test against.
+The core software flow is implemented. The outstanding work includes choosing AppSumo access
+terms, implementing purchase verification and deal limits, validating real ad exports, reviewing
+policies, and completing production deployment and smoke tests.
 
 ---
 

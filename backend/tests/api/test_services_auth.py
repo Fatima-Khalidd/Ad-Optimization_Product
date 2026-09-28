@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
 from app.models import Client, User
-from app.pipeline.config import PipelineConfig
 from app.services.auth import (
     EmailTakenError,
     authenticate,
@@ -36,16 +35,17 @@ def test_signup_creates_a_client_user_and_a_client_row(db: Session):
     assert client.business_name == "Karachi Kicks"  # trimmed
 
 
-def test_signup_copies_the_pipeline_config_fee_defaults(db: Session):
+def test_signup_uses_configured_new_client_invoice_defaults(db: Session, monkeypatch):
+    from app.core.settings import get_settings
+
+    monkeypatch.setenv("NEW_CLIENT_BASE_FEE", "1250.50")
+    monkeypatch.setenv("NEW_CLIENT_PERFORMANCE_FEE_PCT", "12.5")
+    get_settings.cache_clear()
     user = signup_client(db, "fees@example.com", "longenough", "Fee Co")
     client = db.scalar(select(Client).where(Client.user_id == user.id))
 
-    defaults = PipelineConfig()
-    assert client.base_fee == defaults.base_fee
-    assert client.performance_fee_pct == defaults.performance_fee_pct
-    # Quantised to the NUMERIC(14,2) scale so the API always renders "15000.00", not "15000".
-    assert str(client.base_fee) == "15000.00"
-    assert str(client.performance_fee_pct) == "20.00"
+    assert str(client.base_fee) == "1250.50"
+    assert str(client.performance_fee_pct) == "12.50"
 
 
 def test_signup_with_a_taken_email_raises_even_when_cased_differently(db: Session):

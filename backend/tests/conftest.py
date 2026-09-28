@@ -10,6 +10,9 @@ from sqlalchemy.pool import StaticPool
 os.environ["ENV"] = "test"
 os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
 os.environ["SECRET_KEY"] = "test-secret"
+os.environ["AUTO_APPROVE_ANALYSES"] = "true"
+os.environ["NEW_CLIENT_BASE_FEE"] = "0"
+os.environ["NEW_CLIENT_PERFORMANCE_FEE_PCT"] = "0"
 
 
 @pytest.fixture(autouse=True)

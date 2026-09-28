@@ -51,6 +51,10 @@ def test_a_pending_run_has_no_report_for_the_client(
     session: Session, client_row: Client, tmp_path: Path
 ):
     run = _done_run(session, client_row, tmp_path)
+    run.review_status = "pending"
+    run.reviewed_at = None
+    run.review_note = None
+    session.commit()
     assert run.status == "done" and run.review_status == "pending"
 
     with pytest.raises(NotFoundError) as excinfo:
@@ -179,6 +183,10 @@ def test_latest_report_is_none_until_a_run_is_approved(
     session: Session, client_row: Client, tmp_path: Path
 ):
     run = _done_run(session, client_row, tmp_path)
+    run.review_status = "pending"
+    run.reviewed_at = None
+    run.review_note = None
+    session.commit()
 
     assert latest_report(session, client_row.id) is None
 
