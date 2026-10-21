@@ -69,10 +69,13 @@ export default function TermsPage() {
       <section>
         <h2>7. Fees and payment</h2>
         <p>
-          Any price, billing schedule, renewal, or payment terms are those shown by the purchase
-          offer and the platform that processes it. We do not collect payment details when you create
-          an account. If we separately issue an invoice under a written agreement, its stated terms
-          apply to that invoice.
+          The service is billed monthly in US dollars: a fixed monthly fee, plus a performance fee
+          on the ad waste you recover, measured from one report to the next. We agree the recovered
+          figure with you before it is invoiced. Each invoice states its amounts and due date. Card
+          payments are processed by Lemon Squeezy, which acts as the seller of record for them and
+          may add sales tax where it applies; we never receive your card details. You may also pay
+          by bank transfer using the details on the invoice. We do not collect payment details when
+          you create an account.
         </p>
       </section>
       <section>

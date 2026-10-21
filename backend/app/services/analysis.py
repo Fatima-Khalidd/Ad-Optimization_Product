@@ -10,6 +10,7 @@ import math
 from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
+from fastapi import BackgroundTasks
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
@@ -144,7 +145,7 @@ def _error_message(exc: Exception) -> str:
 
 
 def execute_run(run_id: int) -> None:
-    """FastAPI BackgroundTask. Runs after the response, so it opens its own session.
+    """Run the pipeline for one run (started by `dispatch_run`). Opens its own session.
 
     Idempotency: the claim below is a single conditional UPDATE
     (`WHERE id = :run_id AND status = 'queued'`), so a double dispatch of the same
@@ -173,6 +174,26 @@ def execute_run(run_id: int) -> None:
                 failed.status = "failed"
                 failed.error_message = _error_message(exc)
                 session.commit()
+
+
+def dispatch_run(session: Session, run: AnalysisRun, background_tasks: BackgroundTasks) -> None:
+    """Start a queued run the way this deployment can actually finish it.
+
+    "background" hands it to FastAPI BackgroundTasks, which run after the response on a
+    long-lived server. "inline" runs it before the response returns - a serverless function
+    is frozen once it has answered, so a post-response task would never complete - and
+    refreshes `run` so the caller sends back the finished status. A run that is not
+    `queued` (an in-flight run `create_run` reused) is left to whoever already owns it.
+    """
+    if run.status != "queued":
+        return
+    if get_settings().analysis_dispatch == "inline":
+        execute_run(run.id)
+        session.refresh(run)
+    else:
+        # No Redis in the MVP (docs/PLAN.md section 0). The task opens its own session,
+        # because the request's session is closed before it runs.
+        background_tasks.add_task(execute_run, run.id)
 
 
 def _persist_analysis(session: Session, run: AnalysisRun) -> None:

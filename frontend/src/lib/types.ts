@@ -9,6 +9,8 @@
  * them; components must never assume a field carrying money is a `number`.
  */
 
+import type { Currency } from "@/lib/format";
+
 export type Dimension = "placement" | "age_group" | "time_slot";
 
 export const DIMENSIONS: readonly Dimension[] = ["placement", "age_group", "time_slot"];
@@ -152,6 +154,8 @@ export interface MeOut {
  */
 export type InvoiceStatus = "draft" | "issued" | "payment_submitted" | "paid" | "void";
 export type MethodType = "jazzcash" | "easypaisa" | "nayapay" | "raast" | "bank_iban";
+/** How a recorded payment arrived: a manual transfer, or "card" through the payment gateway. */
+export type PaymentMethodType = MethodType | "card";
 
 export interface PaymentInstruction {
   method_type: MethodType;
@@ -172,7 +176,7 @@ export interface PaymentMethod {
 
 export interface Payment {
   id: number;
-  method_type: MethodType;
+  method_type: PaymentMethodType;
   transaction_ref: string;
   /** Money — decimal string. */
   amount: string;
@@ -202,12 +206,18 @@ export interface Invoice {
   amount_paid: string;
   /** Money — decimal string. */
   amount_due: string;
+  /** The currency of every fee, total and payment above; recovered waste is always PKR. */
+  currency: Currency;
+  /** PKR per USD the performance fee was converted at; null on a PKR invoice. */
+  pkr_per_usd: string | null;
   status: InvoiceStatus;
   issued_at: string | null;
   created_at: string;
   is_overdue: boolean;
   payments: Payment[];
   instructions: PaymentInstruction[];
+  /** True when this deployment takes card payments. */
+  pay_by_card: boolean;
 }
 
 export interface AdminPayment extends Payment {
@@ -217,6 +227,7 @@ export interface AdminPayment extends Payment {
   invoice_number: string;
   /** Money — decimal string. */
   invoice_total: string;
+  invoice_currency: Currency;
   invoice_due_date: string;
   invoice_status: InvoiceStatus;
   invoice_is_overdue: boolean;

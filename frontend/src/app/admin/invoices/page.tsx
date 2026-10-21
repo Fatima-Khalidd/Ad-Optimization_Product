@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import InvoiceForm from "@/components/admin/InvoiceForm";
 import { Table, Td, Th } from "@/components/admin/Table";
 import { apiFetch } from "@/lib/api";
-import { formatPKRExact } from "@/lib/format";
+import { formatMoneyExact, formatPKRExact } from "@/lib/format";
 import type { AdminClient, AdminInvoice } from "@/lib/admin-types";
 
 export default function InvoicesPage() {
@@ -69,8 +69,8 @@ export default function InvoicesPage() {
             <Th>Client</Th>
             <Th>Period</Th>
             <Th align="right">Base fee</Th>
-            <Th align="right">Suggested (largest dimension)</Th>
-            <Th align="right">Confirmed</Th>
+            <Th align="right">Suggested waste, PKR (largest dimension)</Th>
+            <Th align="right">Confirmed waste, PKR</Th>
             <Th align="right">Performance fee</Th>
             <Th align="right">Total</Th>
             <Th>Status</Th>
@@ -85,11 +85,11 @@ export default function InvoicesPage() {
               <Td>
                 {invoice.period_start} → {invoice.period_end}
               </Td>
-              <Td align="right">{formatPKRExact(invoice.base_fee)}</Td>
+              <Td align="right">{formatMoneyExact(invoice.base_fee, invoice.currency)}</Td>
               <Td align="right">{formatPKRExact(invoice.suggested_recovered_waste)}</Td>
               <Td align="right">{formatPKRExact(invoice.confirmed_recovered_waste)}</Td>
-              <Td align="right">{formatPKRExact(invoice.performance_fee)}</Td>
-              <Td align="right">{formatPKRExact(invoice.total)}</Td>
+              <Td align="right">{formatMoneyExact(invoice.performance_fee, invoice.currency)}</Td>
+              <Td align="right">{formatMoneyExact(invoice.total, invoice.currency)}</Td>
               <Td>{invoice.status}</Td>
               <Td>
                 {invoice.status === "draft" && (

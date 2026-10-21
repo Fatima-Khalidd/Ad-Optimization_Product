@@ -155,7 +155,7 @@ Meta export is the single most useful next step.
 
 **"Is it live?"**
 Not yet — it runs locally today. Going live is a deployment step, not more building: Supabase
-for the database, Railway for the API, Vercel for the site. The runbook is written.
+for the database, Vercel for the API and the site. The runbook is written.
 
 **"How long until we can sell it?"**
 The core software flow is implemented. The outstanding work includes choosing AppSumo access
@@ -172,7 +172,7 @@ seconds and you want to know exactly how long the pause is before you're live.
 
 ## If your boss wants a link to click themselves
 
-That needs a real deployment (Supabase + Railway + Vercel — the runbook in `README.md`
+That needs a real deployment (Supabase + Vercel — the runbook in `README.md`
 covers it, roughly an hour, about $25/month). Don't do this the night before. A laptop demo
 is more reliable and you control the pace.
 

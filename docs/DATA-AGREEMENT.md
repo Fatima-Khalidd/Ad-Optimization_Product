@@ -37,7 +37,7 @@ them before sending. The analysis does not use them.
 
 ### Who can see it
 
-Only us. Where the file is stored on hosted services, those are Vercel, Railway
+Only us. Where the file is stored on hosted services, those are Vercel
 and Supabase (Mumbai region), which hold it on our instructions and do not use
 it. If you send the file by email or WhatsApp, it also sits in that inbox and on
 our computer until deleted.

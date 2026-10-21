@@ -1,0 +1,19 @@
+# Never ship local secrets: app.core.settings falls back to backend/.env for any variable
+# not set in Vercel, so an uploaded dev .env would leak dev values into production.
+.env
+.env.*
+
+# Not needed at runtime. Migrations and scripts run from a workstation (README "Deploy").
+.venv/
+tests/
+alembic/
+alembic.ini
+scripts/
+storage/
+*.db
+requirements-dev.txt
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage

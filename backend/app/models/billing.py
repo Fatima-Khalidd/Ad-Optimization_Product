@@ -9,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -38,6 +39,12 @@ METHOD_TYPE = Enum(
     native_enum=False,
     length=20,
 )
+# A payment can also arrive by card through a gateway (app/payments/lemonsqueezy.py); that is
+# not an account an admin configures, so it is not a PaymentMethod type. Non-native enums
+# carry no CHECK constraint (see the initial migration), so this needs no migration.
+PAYMENT_METHOD_TYPE = Enum(
+    *METHOD_TYPE.enums, "card", name="payment_method_type", native_enum=False, length=20
+)
 PAYMENT_STATUS = Enum(
     "pending", "confirmed", "rejected", name="payment_status", native_enum=False, length=10
 )
@@ -61,6 +68,14 @@ class Invoice(Base):
     performance_fee: Mapped[Decimal] = mapped_column(Money, nullable=False, default=0)
     total: Mapped[Decimal] = mapped_column(Money, nullable=False)
     amount_paid: Mapped[Decimal] = mapped_column(Money, nullable=False, default=0)
+    # The currency of base_fee, performance_fee, total, amount_paid and the invoice's
+    # payments. The recovered-waste figures stay in the client's ad-spend currency (PKR).
+    # Invoices drafted before USD billing keep "PKR" (the migration's server default).
+    currency: Mapped[str] = mapped_column(
+        String(3), nullable=False, default="USD", server_default="PKR"
+    )
+    # PKR per USD used to convert the performance fee; NULL on a PKR invoice.
+    pkr_per_usd: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
     status: Mapped[str] = mapped_column(INVOICE_STATUS, nullable=False, default="draft")
     confirmed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -92,7 +107,7 @@ class Payment(Base):
     client_id: Mapped[int] = mapped_column(
         ForeignKey("clients.id", ondelete="RESTRICT"), nullable=False, index=True
     )
-    method_type: Mapped[str] = mapped_column(METHOD_TYPE, nullable=False)
+    method_type: Mapped[str] = mapped_column(PAYMENT_METHOD_TYPE, nullable=False)
     transaction_ref: Mapped[str] = mapped_column(String(80), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Money, nullable=False)
     paid_at: Mapped[date] = mapped_column(Date, nullable=False)

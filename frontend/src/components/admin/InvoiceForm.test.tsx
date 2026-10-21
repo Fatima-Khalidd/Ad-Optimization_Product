@@ -34,6 +34,8 @@ const DRAFT: AdminInvoice = {
   performance_fee: "4600.00",
   total: "19600.00",
   amount_paid: "0.00",
+  currency: "USD",
+  pkr_per_usd: "1.0000",
   status: "draft",
   confirmed_by: null,
   issued_at: null,

@@ -1,3 +1,4 @@
+import os
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
@@ -26,6 +27,30 @@ class Settings(BaseSettings):
     max_proof_mb: int = 5
     new_client_base_fee: Decimal = Field(default=Decimal("0"), ge=0)
     new_client_performance_fee_pct: Decimal = Field(default=Decimal("0"), ge=0, le=100)
+    # Invoices are in USD; recovered waste is measured in the client's PKR ad spend. The
+    # performance fee is converted at this rate, frozen onto each invoice when it is drafted.
+    pkr_per_usd: Decimal = Field(default=Decimal("276"), gt=0)
+
+    # --- card payments in USD (Lemon Squeezy, app/payments/lemonsqueezy.py) ---
+    # Off until all four are set; the bank-transfer route keeps working either way.
+    lemonsqueezy_api_key: str | None = None
+    lemonsqueezy_store_id: str | None = None
+    # A product variant whose price is overridden per checkout with the invoice's amount.
+    lemonsqueezy_variant_id: str | None = None
+    lemonsqueezy_webhook_secret: str | None = None
+    # The frontend's public origin, where the checkout sends the client back afterwards.
+    public_app_url: str | None = None
+
+    @property
+    def card_payments_enabled(self) -> bool:
+        return all(
+            (
+                self.lemonsqueezy_api_key,
+                self.lemonsqueezy_store_id,
+                self.lemonsqueezy_variant_id,
+                self.lemonsqueezy_webhook_secret,
+            )
+        )
 
     # --- file storage (docs/PLAN.md section 1 #9) ---
     storage_backend: str = "local"  # "supabase" arrives in Stage 8
@@ -62,6 +87,29 @@ class Settings(BaseSettings):
     supabase_url: str | None = None
     supabase_service_key: str | None = None
     storage_bucket: str = "ad-optimizer"
+
+    # --- serverless hosting (Vercel) ---------------------------------------
+    # Vercel sets VERCEL=1 in every build and function, so a Vercel deploy is detected with
+    # no configuration; SERVERLESS=true/false overrides the detection either way.
+    serverless: bool = Field(default_factory=lambda: bool(os.environ.get("VERCEL")))
+    # How POST /api/analyze runs the pipeline (app.services.analysis.dispatch_run).
+    # Unset means "inline" when serverless - a frozen function never finishes a post-response
+    # task - and "background" otherwise.
+    analysis_dispatch: Literal["background", "inline"] | None = None
+    # Where the login rate limiter keeps its counters. "memory://" is per process, which
+    # is only correct with a single long-lived process; serverless needs a shared store,
+    # e.g. Upstash Redis: rediss://default:<password>@<host>:6379
+    rate_limit_storage_uri: str = "memory://"
+
+    @model_validator(mode="after")
+    def _apply_serverless_defaults(self) -> "Settings":
+        if self.analysis_dispatch is None:
+            self.analysis_dispatch = "inline" if self.serverless else "background"
+        if self.serverless and self.storage_backend == "local":
+            raise ValueError(
+                "serverless functions have no persistent disk: set STORAGE_BACKEND=supabase"
+            )
+        return self
 
     @field_validator("cors_origins", mode="before")
     @classmethod

@@ -1,8 +1,9 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from sqlalchemy import Engine, MetaData, create_engine
+from sqlalchemy import Engine, MetaData, create_engine, make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from app.core.settings import get_settings
 
@@ -20,15 +21,26 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
-def make_engine(url: str) -> Engine:
-    """SQLite keeps the dev/test defaults; Postgres is sized for Supabase's session pooler.
+def make_engine(url: str, *, serverless: bool = False) -> Engine:
+    """SQLite keeps the dev/test defaults; Postgres is sized for Supabase's pooler.
 
     A Supabase project shares a fixed number of pooler connections across every client, so
-    each container is capped at pool_size + max_overflow = 10, and connections are recycled
-    every 30 minutes so the pooler never closes one out from under us (`docs/PLAN.md` §7 #3).
+    a long-lived container is capped at pool_size + max_overflow = 10, and connections are
+    recycled every 30 minutes so the pooler never closes one out from under us
+    (`docs/PLAN.md` §7 #3).
+
+    Serverless runs many short-lived instances at once, and a pool held open in each would
+    exhaust the pooler, so there every connection is closed after use (NullPool) and
+    Supabase's transaction pooler does the pooling. That pooler cannot keep prepared
+    statements, so psycopg's are switched off (`prepare_threshold=None`).
     """
     if url.startswith("sqlite"):
         return create_engine(url, pool_pre_ping=True, connect_args={"check_same_thread": False})
+    if serverless:
+        connect_args = (
+            {"prepare_threshold": None} if make_url(url).get_driver_name() == "psycopg" else {}
+        )
+        return create_engine(url, poolclass=NullPool, connect_args=connect_args)
     return create_engine(
         url,
         pool_pre_ping=True,
@@ -58,7 +70,8 @@ def reset_engine() -> None:
 
 def get_engine() -> Engine:
     if _engine is None:
-        configure_engine(make_engine(get_settings().database_url))
+        settings = get_settings()
+        configure_engine(make_engine(settings.database_url, serverless=settings.serverless))
     return _engine
 
 

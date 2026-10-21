@@ -94,11 +94,20 @@ def calculate_fee(
     performance_fee_pct: Decimal | int | float | str,
     confirmed_recovered_waste: Decimal | int | float | str,
     cap: Decimal | int | float | str | None = None,
+    exchange_rate: Decimal | int | float | str = Decimal("1"),
 ) -> FeeBreakdown:
+    """The hybrid fee, in the billing currency.
+
+    `confirmed_recovered_waste` is in the client's ad-spend currency (what the report
+    measures); `exchange_rate` is how many of those units make one unit of the billing
+    currency (e.g. 276 PKR per USD). The performance fee is converted before rounding, so
+    it is rounded once. `base_fee` and `cap` are already in the billing currency.
+    """
     base_fee = _as_decimal(base_fee)
     performance_fee_pct = _as_decimal(performance_fee_pct)
     confirmed_recovered_waste = _as_decimal(confirmed_recovered_waste)
     cap = _as_decimal(cap) if cap is not None else None
+    exchange_rate = _as_decimal(exchange_rate)
 
     if base_fee < 0 or confirmed_recovered_waste < 0:
         raise ValueError("base_fee and confirmed_recovered_waste must be >= 0")
@@ -106,10 +115,12 @@ def calculate_fee(
         raise ValueError("performance_fee_pct must be between 0 and 100")
     if cap is not None and cap < 0:
         raise ValueError("cap must be >= 0")
+    if exchange_rate <= 0:
+        raise ValueError("exchange_rate must be > 0")
 
-    performance_fee = (confirmed_recovered_waste * performance_fee_pct / Decimal("100")).quantize(
-        TWO_PLACES, rounding=ROUND_HALF_UP
-    )
+    performance_fee = (
+        confirmed_recovered_waste * performance_fee_pct / Decimal("100") / exchange_rate
+    ).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
     cap_applied = cap is not None and performance_fee > cap
     if cap_applied:
         performance_fee = cap.quantize(TWO_PLACES, rounding=ROUND_HALF_UP)

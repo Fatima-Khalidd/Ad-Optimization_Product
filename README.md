@@ -131,6 +131,7 @@ cd frontend && npm run lint && npx tsc --noEmit && npm test && npm run build
 | `MAX_UPLOAD_MB` | backend | Per-file upload cap |
 | `AUTO_APPROVE_ANALYSES` | backend | Defaults to `true`; completed reports become available to their owner without admin review. Set `false` to require review |
 | `NEW_CLIENT_BASE_FEE`, `NEW_CLIENT_PERFORMANCE_FEE_PCT` | backend | Optional defaults for separately issued manual invoices; default to zero, not AppSumo plan or license settings |
+| `PKR_PER_USD` | backend | Invoices are in USD; the performance fee on rupee recovered waste is converted at this rate (default `276`), frozen onto each invoice when drafted |
 | `SENTRY_DSN` | backend | Empty = Sentry off |
 | `STORAGE_BACKEND` | backend | `local` or `supabase` |
 | `STORAGE_ROOT` | backend | Directory used when `STORAGE_BACKEND=local` |
@@ -161,7 +162,7 @@ cd backend
   same segments inside it, **per dimension, and takes the largest single dimension — never the
   sum** (`docs/PLAN.md` §1 #5): one saving shows up in the placement, age-group and time-slot
   breakdowns at once, so adding them would bill the client about three times over. The admin
-  always confirms the final figure, and a drafted invoice's base fee is frozen at draft time.
+  always confirms the final figure, and a drafted invoice's base fee and PKR→USD rate are frozen at draft time.
 - `/admin/audit` — every approve, reject, client update and invoice action, with before/after JSON.
 
 ### Analysis pipeline (Stage 1)
@@ -237,7 +238,8 @@ implements `PaymentProvider` in `backend/app/payments/`, registering it in
 
 ## Deploy
 
-Supabase Postgres + Storage (Mumbai `ap-south-1`), backend on Railway, frontend on Vercel.
+Supabase Postgres + Storage (Mumbai `ap-south-1`); backend and frontend are two Vercel
+projects from this one repository, both running in Mumbai (`bom1`).
 Every step below is an **owner checkpoint** — it needs an account the repository does not have.
 Work through them in order; each one ends with something you can verify.
 
@@ -247,13 +249,15 @@ Work through them in order; each one ends with something you can verify.
 2. Save the database password somewhere safe — it appears once.
 3. Settings → Database → confirm **Daily backups** are enabled (included with Pro). Leave
    Point-in-Time Recovery off for now.
-4. Settings → Database → Connection string → **Session pooler**. Copy it, then change the
-   scheme from `postgresql://` to `postgresql+psycopg://`. That is your `DATABASE_URL`.
+4. Settings → Database → Connection string → **Transaction pooler** (port `6543`). Copy it,
+   then change the scheme from `postgresql://` to `postgresql+psycopg://`. That is your
+   `DATABASE_URL`. Keep the **Session pooler** string (port `5432`) too, for migrations.
 5. Storage → New bucket → name `ad-optimizer`, **Public bucket OFF**. The backend reaches it
    with the service key; nothing is ever served from a public URL.
 6. Settings → API → copy the **Project URL** (`SUPABASE_URL`) and the **`service_role`** key
    (`SUPABASE_SERVICE_KEY`). The `service_role` key bypasses row-level security: it goes on
-   Railway only, never into Vercel, never into a `NEXT_PUBLIC_*` variable.
+   the backend Vercel project only, never on the frontend project, never into a
+   `NEXT_PUBLIC_*` variable.
 
 Verify: the bucket list shows `ad-optimizer` with a padlock / "Private" label.
 
@@ -261,58 +265,33 @@ Verify: the bucket list shows `ad-optimizer` with a padlock / "Private" label.
 
 1. Create two projects in Sentry: one **Python / FastAPI** (backend) and one **Next.js**
    (frontend).
-2. Copy each project's DSN. Backend DSN → `SENTRY_DSN` on Railway. Frontend DSN →
-   `NEXT_PUBLIC_SENTRY_DSN` on Vercel.
+2. Copy each project's DSN. Backend DSN → `SENTRY_DSN` on the backend project. Frontend DSN →
+   `NEXT_PUBLIC_SENTRY_DSN` on the frontend project.
 3. For source maps, create an org auth token with the `project:releases` scope →
-   `SENTRY_AUTH_TOKEN` on Vercel, plus `SENTRY_ORG` and `SENTRY_PROJECT` slugs.
+   `SENTRY_AUTH_TOKEN` on the frontend project, plus `SENTRY_ORG` and `SENTRY_PROJECT` slugs.
 
 Verify: both projects show "Waiting for events".
 
-### 3. Railway backend service
+### 3. Redis for the login rate limit
 
-1. New project → Deploy from GitHub repo → pick this repository.
-2. Service → Settings → Source → **Root Directory: `backend`**. Railway then picks up
-   `backend/railway.toml`, `backend/runtime.txt` and `backend/requirements.txt`.
-3. Service → Variables → paste every variable from `backend/.env.production.example`, filled
-   in. `CORS_ORIGINS` is not known yet; set it to `https://localhost` for now and fix it in
-   step 5.
-4. Deploy. The start command runs `alembic upgrade head` before uvicorn, so the schema is
-   created on the first boot.
-5. Settings → Networking → Generate Domain. That URL is your `BACKEND_URL`.
+Vercel runs several copies of the backend at once, each with its own memory, so the login
+limiter's counters must live in a shared store.
 
-Verify: `curl -i https://<railway-domain>/api/health` returns `200`,
-`{"status":"ok","env":"prod"}`, and the response includes `Strict-Transport-Security`.
-Railway's Deploy Logs show one JSON object per line.
+1. Vercel → Marketplace → **Upstash** → create a Redis database in Mumbai (`ap-south-1`).
+2. Copy its `rediss://` connection string. That is `RATE_LIMIT_STORAGE_URI`.
 
-### 4. Vercel frontend project
+Without it the API still runs, but logs a warning at every cold start and the limit is
+counted per instance.
 
-1. New Project → import the same repository → **Root Directory: `frontend`**. Framework
-   preset: Next.js.
-2. Environment Variables → paste everything from `frontend/.env.production.example`, with
-   `BACKEND_URL` set to the Railway domain from step 3.
-3. Deploy, then copy the production domain.
+### 4. Migrations and the first admin
 
-Verify: the Vercel domain loads the landing page, and `/terms`, `/privacy` and `/refunds`
-all render.
-
-### 5. Close the CORS loop
-
-1. Back on Railway, set `CORS_ORIGINS` to the exact Vercel production origin, for example
-   `https://ad-optimizer.vercel.app` — no trailing slash, no wildcard. Add the custom domain
-   as a second comma-separated entry if you have one.
-2. Redeploy the Railway service.
-
-Verify: signing in on the Vercel domain works. If the browser console shows a CORS error,
-the origin string does not match exactly — check for a trailing slash or `www.`.
-
-### 6. Migrations and the first admin
-
-The Procfile already ran `alembic upgrade head` on deploy. To run it by hand, or to create
-the admin, open the Railway service shell (or `railway run` locally) and run:
+Vercel has no start command, so migrations run from your machine **before** each deploy that
+adds one. Use the **Session pooler** string from step 1:
 
 ```bash
-alembic upgrade head
-python scripts/create_admin.py --email you@example.com --password '<a long password>'
+cd backend
+DATABASE_URL='postgresql+psycopg://...pooler.supabase.com:5432/postgres' alembic upgrade head
+DATABASE_URL='...same...' ENV=prod SECRET_KEY='<the prod key>'   python scripts/create_admin.py --email you@example.com --password '<a long password>'
 ```
 
 `scripts/seed_demo.py` is for the **dev Supabase project only** — it refuses to run
@@ -320,9 +299,70 @@ whenever `ENV=prod` (exit code 2), on purpose: a demo client with a shared, docu
 password is a real hazard in production. Do not run it against the prod database. There is
 no demo client in production; the admin account created above is the only account you need.
 
-Verify: signing in on the Vercel domain with the admin email reaches `/admin`.
+Verify: Supabase → Table Editor lists the app's tables and one row in `users`.
 
-### 7. Smoke test
+### 5. Lemon Squeezy (card payments in USD)
+
+Optional — without it, clients pay by bank transfer and an admin confirms each payment.
+
+1. Create a Lemon Squeezy account and store. Under Settings → Payouts, add your Pakistani bank
+   account (a USD/ESFCA account at your bank keeps the dollars as dollars; a PKR account has
+   them converted on arrival).
+2. Create one product, "Invoice payment", with a single variant. Its price does not matter:
+   every checkout overrides it with the invoice's balance. Price it **tax-exclusive**, so tax
+   is added on top and the client's invoice is credited with the full amount.
+3. Settings → API → create a key → `LEMONSQUEEZY_API_KEY`. The store id and the variant id
+   (from the variant's URL) → `LEMONSQUEEZY_STORE_ID` and `LEMONSQUEEZY_VARIANT_ID`.
+4. Settings → Webhooks → add `https://<backend-domain>/api/webhooks/lemonsqueezy`, event
+   **order_created**, with a long random signing secret → `LEMONSQUEEZY_WEBHOOK_SECRET`.
+5. Set `PUBLIC_APP_URL` to the frontend origin.
+
+Verify (test mode): open an issued invoice, click **Pay by card**, pay with a test card, and
+the invoice turns **Paid** within a minute with a "Card" payment in its history. Refunds are
+issued in Lemon Squeezy; record them on the invoice by hand.
+
+### 6. Vercel backend project
+
+1. New Project → import this repository → **Root Directory: `backend`**. Framework preset:
+   **Other**. Vercel picks up `backend/vercel.json`, `backend/api/index.py`,
+   `backend/.python-version` and `backend/requirements.txt`.
+2. Environment Variables → paste every variable from `backend/.env.production.example`,
+   filled in. `CORS_ORIGINS` is not known yet; set it to `https://example.com` for now and
+   fix it in step 8.
+3. Deploy, then copy the production domain. That URL is your `BACKEND_URL`.
+
+On Vercel the app detects `VERCEL=1` and switches itself to serverless behaviour: each
+analysis runs inside the `POST /api/analyze` request (60 s limit, `vercel.json`), database
+connections are not pooled per instance, and local file storage is refused at startup.
+Request bodies are capped at 4.5 MB by Vercel, so uploads are capped at `MAX_UPLOAD_MB=3`.
+
+Verify: `curl -i https://<backend-domain>/api/health` returns `200`,
+`{"status":"ok","env":"prod"}`, and the response includes `Strict-Transport-Security`.
+The project's Logs tab shows one JSON object per line.
+
+### 7. Vercel frontend project
+
+1. New Project → import the same repository → **Root Directory: `frontend`**. Framework
+   preset: Next.js.
+2. Environment Variables → paste everything from `frontend/.env.production.example`, with
+   `BACKEND_URL` set to the backend domain from step 6.
+3. Deploy, then copy the production domain.
+
+Verify: the frontend domain loads the landing page, and `/terms`, `/privacy` and `/refunds`
+all render.
+
+### 8. Close the CORS loop
+
+1. On the backend project, set `CORS_ORIGINS` to the exact frontend production origin, for
+   example `https://ad-optimizer.vercel.app` — no trailing slash, no wildcard. Add the custom
+   domain as a second comma-separated entry if you have one.
+2. Redeploy the backend project.
+
+Verify: signing in on the frontend domain works, and signing in with the admin email
+reaches `/admin`. If the browser console shows a CORS error, the origin string does not
+match exactly — check for a trailing slash or `www.`.
+
+### 9. Smoke test
 
 Run the checklist below. Stage 8 is not done until every line is ticked **in production**.
 
@@ -366,9 +406,9 @@ not curl — the point is to prove the cookie, CORS and storage paths work end t
       one deliberately if needed, e.g. request a report id that does not exist).
 - [ ] **Policy pages.** `/terms`, `/privacy` and `/refunds` load, and the footer links to all
       three from every page.
-- [ ] **Security headers in prod.** `curl -I https://<railway-domain>/api/health` shows
+- [ ] **Security headers in prod.** `curl -I https://<backend-domain>/api/health` shows
       `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options`,
       `Referrer-Policy` and `Permissions-Policy`.
 - [ ] **CORS is closed.** From a browser console on any other site,
-      `fetch("https://<railway-domain>/api/auth/me", {credentials: "include"})` fails with a
+      `fetch("https://<backend-domain>/api/auth/me", {credentials: "include"})` fails with a
       CORS error.

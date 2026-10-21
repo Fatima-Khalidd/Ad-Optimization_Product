@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -15,6 +17,8 @@ from app.core.rate_limit import limiter, rate_limit_exceeded_handler
 from app.core.settings import Settings, get_settings
 from app.routers import analysis, auth, reports, uploads
 
+logger = logging.getLogger(__name__)
+
 
 class CorsMisconfiguredError(RuntimeError):
     """Raised at startup rather than shipping an API any website can call with cookies."""
@@ -29,7 +33,7 @@ def _check_cors(settings: Settings) -> None:
             f"got {settings.cors_origins!r}"
         )
     # F2: CORS_ORIGINS defaults to ["http://localhost:3000"] (dev convenience), so an
-    # operator who forgets to set it in Railway would otherwise boot prod with the Vercel
+    # operator who forgets to set it in Vercel would otherwise boot prod with the Vercel
     # frontend BLOCKED and localhost accepted as a credentialed origin. This also catches
     # any explicit localhost/127.0.0.1 entry, whether or not the rest of the list is real.
     localhost_origins = [
@@ -39,6 +43,17 @@ def _check_cors(settings: Settings) -> None:
         raise CorsMisconfiguredError(
             "CORS_ORIGINS must not include a localhost/127.0.0.1 origin in production "
             f"(and must be explicitly set to the real frontend origin); got {localhost_origins!r}"
+        )
+
+
+def _warn_on_per_instance_rate_limit(settings: Settings) -> None:
+    """Serverless runs several instances at once, each with its own memory, so an in-memory
+    limiter lets an attacker multiply the login limit by the instance count. Logged rather
+    than fatal: the API still works, the brute-force protection is just weaker."""
+    if settings.serverless and settings.rate_limit_storage_uri.startswith("memory://"):
+        logger.warning(
+            "RATE_LIMIT_STORAGE_URI is in-memory on serverless hosting: the login rate limit "
+            "is counted per instance. Point it at a shared Redis (e.g. Upstash)."
         )
 
 
@@ -66,6 +81,7 @@ def create_app() -> FastAPI:
     configure_logging()
     _init_sentry(settings)
     _check_cors(settings)
+    _warn_on_per_instance_rate_limit(settings)
     application = FastAPI(title="Ad Spend Optimization API", version="0.1.0")
 
     # slowapi reads the limiter off app.state; the decorator on /api/auth/login needs both
@@ -108,9 +124,11 @@ def create_app() -> FastAPI:
 
     from app.routers.admin import router as admin_router
     from app.routers.billing import router as billing_router
+    from app.routers.webhooks import router as webhooks_router
 
     application.include_router(admin_router)
     application.include_router(billing_router)
+    application.include_router(webhooks_router)
 
     return application
 

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
 
 import InvoiceDetail from "@/components/billing/InvoiceDetail";
 import InvoiceTable from "@/components/billing/InvoiceTable";
@@ -9,9 +10,20 @@ import { apiFetch } from "@/lib/api";
 import type { Invoice, PaymentMethod } from "@/lib/types";
 
 export default function BillingPage() {
+  // useSearchParams needs a Suspense boundary, or the page cannot be prerendered.
+  return (
+    <Suspense>
+      <Billing />
+    </Suspense>
+  );
+}
+
+function Billing() {
+  // The card checkout sends the client back here with ?paid=<invoice id>.
+  const paidId = Number(useSearchParams().get("paid")) || null;
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(paidId);
   const [selected, setSelected] = useState<Invoice | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +70,12 @@ export default function BillingPage() {
       {error ? (
         <p role="alert" className="text-coral">
           {error}
+        </p>
+      ) : null}
+      {paidId !== null ? (
+        <p role="status" className="rounded border border-teal/40 bg-teal/10 px-4 py-3 text-sm">
+          Thank you — your card payment went through. The invoice shows as paid once the payment
+          provider confirms it, usually within a minute.
         </p>
       ) : null}
       <InvoiceTable invoices={invoices} selectedId={selectedId} onSelect={setSelectedId} />

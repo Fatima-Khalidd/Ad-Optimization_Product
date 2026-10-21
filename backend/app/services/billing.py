@@ -3,6 +3,10 @@
 "Recovered waste" is the before/after comparison from docs/PLAN.md section 1 #5 and
 section 7 #2: the system only ever *suggests* a number and the admin confirms it.
 Every amount here is a Decimal quantized to 2 places; nothing is ever a float.
+
+Invoices are in USD (`Invoice.currency`); recovered waste is in the client's PKR ad spend.
+The performance fee is converted at the PKR-per-USD rate frozen onto the invoice at draft
+time, so a later rate change never moves an invoice that already exists.
 """
 
 from datetime import UTC, date, datetime, time, timedelta
@@ -13,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError
+from app.core.settings import get_settings
 from app.models import AnalysisRun, Client, Invoice, SegmentMetric, User, WasteReport
 from app.pipeline.config import PipelineConfig
 from app.pipeline.optimizer import calculate_fee
@@ -121,6 +126,8 @@ INVOICE_AUDIT_FIELDS = (
     "confirmed_recovered_waste",
     "performance_fee",
     "total",
+    "currency",
+    "pkr_per_usd",
     "due_date",
     "issued_at",
     "confirmed_by",
@@ -156,6 +163,8 @@ def serialize_invoice(session: Session, invoice: Invoice, client: Client | None 
         "performance_fee": invoice.performance_fee,
         "total": invoice.total,
         "amount_paid": invoice.amount_paid,
+        "currency": invoice.currency,
+        "pkr_per_usd": invoice.pkr_per_usd,
         "status": invoice.status,
         "confirmed_by": invoice.confirmed_by,
         "issued_at": invoice.issued_at,
@@ -177,6 +186,14 @@ def list_invoices(
 
 def _fee_cap(client: Client) -> Decimal | None:
     return PipelineConfig.from_overrides(client.config_overrides or {}).performance_fee_cap
+
+
+BILLING_CURRENCY = "USD"
+
+
+def _exchange_rate(invoice: Invoice) -> Decimal:
+    """PKR per unit of the invoice's currency. A legacy PKR invoice converts nothing."""
+    return invoice.pkr_per_usd if invoice.currency == "USD" else Decimal("1")
 
 
 def _next_invoice_number(session: Session, year: int) -> str:
@@ -225,6 +242,7 @@ def draft_invoice(
         )
 
     suggested = suggest_recovered_waste(session, client_id, period_start, period_end)
+    pkr_per_usd = get_settings().pkr_per_usd
     # The draft shows what the bill would be if the admin accepts the suggestion; the
     # confirmed figure stays 0 until a human confirms it (docs/PLAN.md section 1 #5).
     fee = calculate_fee(
@@ -232,6 +250,7 @@ def draft_invoice(
         Decimal(client.performance_fee_pct),
         suggested,
         cap=_fee_cap(client),
+        exchange_rate=pkr_per_usd,
     )
 
     # F4: two admins drafting in the same instant can compute the same next invoice
@@ -252,6 +271,8 @@ def draft_invoice(
             performance_fee=fee.performance_fee,
             total=fee.total,
             amount_paid=Decimal("0.00"),
+            currency=BILLING_CURRENCY,
+            pkr_per_usd=pkr_per_usd,
             status="draft",
         )
         session.add(candidate)
@@ -302,6 +323,7 @@ def confirm_invoice(
         Decimal(client.performance_fee_pct),
         _money(confirmed_recovered_waste),
         cap=_fee_cap(client),
+        exchange_rate=_exchange_rate(invoice),
     )
     invoice.confirmed_recovered_waste = fee.recovered_waste
     invoice.performance_fee = fee.performance_fee

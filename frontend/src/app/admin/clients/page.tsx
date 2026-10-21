@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 import { Table, Td, Th } from "@/components/admin/Table";
 import { apiFetch } from "@/lib/api";
-import { formatPKR, formatPct } from "@/lib/format";
+import { formatMoney, formatPct } from "@/lib/format";
 import type { AdminClient } from "@/lib/admin-types";
 
 export default function ClientsPage() {
@@ -26,7 +26,7 @@ export default function ClientsPage() {
       <thead>
         <tr>
           <Th>Business</Th>
-          <Th align="right">Base fee</Th>
+          <Th align="right">Base fee (USD)</Th>
           <Th align="right">Performance %</Th>
           <Th>Overrides</Th>
           <Th>Joined</Th>
@@ -40,7 +40,7 @@ export default function ClientsPage() {
                 {client.business_name}
               </Link>
             </Td>
-            <Td align="right">{formatPKR(client.base_fee)}</Td>
+            <Td align="right">{formatMoney(client.base_fee, "USD")}</Td>
             <Td align="right">{formatPct(client.performance_fee_pct)}</Td>
             <Td>{Object.keys(client.config_overrides).length || "—"}</Td>
             <Td>{client.created_at.slice(0, 10)}</Td>

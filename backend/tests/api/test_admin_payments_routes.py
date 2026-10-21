@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import AuditLog, Client, Invoice, PaymentMethod
-from tests.api.helpers import PNG_BYTES, make_invoice, make_method
+from tests.api.helpers import NOT_YET_DUE, PNG_BYTES, make_invoice, make_method
 
 FORM = {
     "method_type": "jazzcash",
@@ -24,7 +24,7 @@ FORM = {
 
 
 def _client_submits(
-    db: Session, client_a: TestClient, client_a_row: Client, *, due_date=date(2026, 10, 7)
+    db: Session, client_a: TestClient, client_a_row: Client, *, due_date=NOT_YET_DUE
 ):
     """One issued invoice for client_a plus one pending payment on it."""
     invoice = make_invoice(db, client_a_row, due_date=due_date)

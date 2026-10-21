@@ -65,11 +65,15 @@ class InvoiceOut(BaseModel):
     performance_fee: Decimal
     total: Decimal
     amount_paid: Decimal
+    currency: str
+    pkr_per_usd: Decimal | None = None
     status: str
     issued_at: datetime | None = None
     created_at: datetime
     payments: list[PaymentOut] = []
     instructions: list[PaymentInstruction] = []
+    # True when this deployment takes card payments (Settings.card_payments_enabled).
+    pay_by_card: bool = False
 
     @computed_field
     @property
@@ -88,6 +92,7 @@ class AdminPaymentOut(PaymentOut):
     invoice_id: int
     invoice_number: str
     invoice_total: Decimal
+    invoice_currency: str
     invoice_due_date: date
     invoice_status: str
     invoice_is_overdue: bool
@@ -137,13 +142,14 @@ class RejectRequest(BaseModel):
     note: str = Field(min_length=1, max_length=1000)
 
 
-def invoice_out(invoice, payments=(), instructions=()) -> InvoiceOut:
+def invoice_out(invoice, payments=(), instructions=(), *, pay_by_card: bool = False) -> InvoiceOut:
     """Build an InvoiceOut. The Invoice model has no relationships, so both lists are passed in."""
     base = InvoiceOut.model_validate(invoice)
     return base.model_copy(
         update={
             "payments": [PaymentOut.model_validate(p) for p in payments],
             "instructions": list(instructions),
+            "pay_by_card": pay_by_card,
         }
     )
 
@@ -159,7 +165,14 @@ def admin_payment_out(payment, invoice, client, today: date | None = None) -> Ad
         invoice_id=invoice.id,
         invoice_number=invoice.invoice_number,
         invoice_total=invoice.total,
+        invoice_currency=invoice.currency,
         invoice_due_date=invoice.due_date,
         invoice_status=invoice.status,
         invoice_is_overdue=_overdue(invoice.status, invoice.due_date, today),
     )
+
+
+class CheckoutOut(BaseModel):
+    """Where to send the client to pay an invoice by card."""
+
+    url: str

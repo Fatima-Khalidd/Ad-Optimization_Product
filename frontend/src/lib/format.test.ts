@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { formatPKR, formatPKRExact, formatPct, humanizeSegment, wasteShare } from "./format";
+import {
+  formatMoney,
+  formatMoneyExact,
+  formatPKR,
+  formatPKRExact,
+  formatPct,
+  humanizeSegment,
+  wasteShare,
+} from "./format";
 
 describe("formatPKR", () => {
   it("groups thousands and prefixes the rupee label", () => {
@@ -78,6 +86,28 @@ describe("formatPKRExact", () => {
 
   it("never renders NaN", () => {
     expect(formatPKRExact(Number.NaN)).toBe("Rs. 0.00");
+  });
+});
+
+describe("formatMoney / formatMoneyExact", () => {
+  it("writes dollars with a $ and no space", () => {
+    expect(formatMoney("65.00", "USD")).toBe("$65");
+    expect(formatMoneyExact("81.67", "USD")).toBe("$81.67");
+    expect(formatMoneyExact(1234567.5, "USD")).toBe("$1,234,567.50");
+  });
+
+  it("puts the minus sign before the symbol", () => {
+    expect(formatMoneyExact(-5000, "USD")).toBe("-$5,000.00");
+  });
+
+  it("matches the rupee shorthands for PKR", () => {
+    expect(formatMoney(84000, "PKR")).toBe(formatPKR(84000));
+    expect(formatMoneyExact("4600.50", "PKR")).toBe(formatPKRExact("4600.50"));
+  });
+
+  it("renders missing values as a dash in any currency", () => {
+    expect(formatMoney(null, "USD")).toBe("—");
+    expect(formatMoneyExact("", "USD")).toBe("—");
   });
 });
 

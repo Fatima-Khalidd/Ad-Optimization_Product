@@ -323,6 +323,10 @@ PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"0" * 64
 JPEG_BYTES = b"\xff\xd8\xff\xe0" + b"0" * 64
 PDF_BYTES = b"%PDF-1.7\n" + b"0" * 64
 
+# "Overdue" compares the due date with today, so a default due date that is a real calendar
+# date eventually passes and flips every "not overdue" assertion. This one never does.
+NOT_YET_DUE = date(2099, 10, 7)
+
 
 def make_invoice(
     db: Session,
@@ -334,16 +338,20 @@ def make_invoice(
     base_fee: Decimal = Decimal("15000.00"),
     recovered: Decimal = Decimal("23000.00"),
     pct: Decimal = Decimal("20.00"),
-    due_date: date = date(2026, 10, 7),
+    due_date: date = NOT_YET_DUE,
     amount_paid: Decimal = Decimal("0.00"),
+    currency: str = "USD",
+    pkr_per_usd: Decimal | None = Decimal("1"),
 ) -> Invoice:
     """A committed invoice for `client`, September 2026 by default.
 
     The defaults agree with each other: base 15,000 + 20% of 23,000 recovered waste = a 4,600
     performance fee, so `total` is 19,600. If you override `base_fee`, `recovered` or `pct`,
-    pass a matching `total` so the row stays internally consistent.
+    pass a matching `total` so the row stays internally consistent. The rate is 1, the same
+    PKR_PER_USD tests/conftest.py sets, so the arithmetic needs no conversion.
     """
-    performance_fee = (recovered * pct / Decimal("100")).quantize(Decimal("0.01"))
+    rate = pkr_per_usd if currency == "USD" else Decimal("1")
+    performance_fee = (recovered * pct / Decimal("100") / rate).quantize(Decimal("0.01"))
     invoice = Invoice(
         invoice_number=number,
         client_id=client.id,
@@ -356,6 +364,8 @@ def make_invoice(
         performance_fee=performance_fee,
         total=total,
         amount_paid=amount_paid,
+        currency=currency,
+        pkr_per_usd=pkr_per_usd if currency == "USD" else None,
         status=status,
         issued_at=None if status == "draft" else utcnow(),
     )

@@ -1,5 +1,7 @@
 // Mirrors backend/app/schemas/admin.py. Every Decimal is a JSON string ("19600.00").
 
+import type { Currency } from "@/lib/format";
+
 export type AdminClient = {
   id: number;
   business_name: string;
@@ -58,6 +60,8 @@ export type AdminInvoice = {
   performance_fee: string;
   total: string;
   amount_paid: string;
+  currency: Currency;
+  pkr_per_usd: string | null;
   status: "draft" | "issued" | "payment_submitted" | "paid" | "void";
   confirmed_by: number | null;
   issued_at: string | null;

@@ -34,6 +34,8 @@ const INVOICE: AdminInvoice = {
   performance_fee: "4600.50",
   total: "19600.50",
   amount_paid: "0.00",
+  currency: "USD",
+  pkr_per_usd: "1.0000",
   status: "draft",
   confirmed_by: null,
   issued_at: null,
@@ -55,8 +57,8 @@ describe("InvoicesPage", () => {
     // F6: the client's business name is a column, not just a number.
     expect(screen.getAllByText("Acme Traders").length).toBeGreaterThan(0);
 
-    // F2: performance fee 4600.50 must render with cents, never rounded to Rs. 4,601.
-    expect(screen.getByText("Rs. 4,600.50")).toBeInTheDocument();
-    expect(screen.getByText("Rs. 19,600.50")).toBeInTheDocument();
+    // F2: performance fee 4600.50 must render with cents, never rounded to $4,601.
+    expect(screen.getByText("$4,600.50")).toBeInTheDocument();
+    expect(screen.getByText("$19,600.50")).toBeInTheDocument();
   });
 });

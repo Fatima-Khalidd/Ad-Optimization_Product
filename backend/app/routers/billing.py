@@ -13,10 +13,12 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_session
 from app.core.deps import CurrentClient
-from app.core.errors import ValidationError
+from app.core.errors import ConflictError, ValidationError
 from app.core.settings import get_settings
-from app.payments import get_payment_provider
+from app.models import User
+from app.payments import get_payment_provider, lemonsqueezy
 from app.schemas.billing import (
+    CheckoutOut,
     InvoiceOut,
     MethodType,
     PaymentMethodOut,
@@ -48,7 +50,26 @@ def get_invoice(invoice_id: int, client: CurrentClient, session: SessionDep) -> 
         invoice,
         payments_service.list_payments(session, invoice.id),
         get_payment_provider().instructions_for(session, invoice),
+        pay_by_card=get_settings().card_payments_enabled,
     )
+
+
+@router.post("/invoices/{invoice_id}/checkout", response_model=CheckoutOut)
+def start_card_checkout(invoice_id: int, client: CurrentClient, session: SessionDep):
+    """A hosted card checkout for what is still owed. The webhook, not this call, records it."""
+    invoice = payments_service.get_invoice(session, client.id, invoice_id)
+    payments_service.ensure_payable(invoice)
+    amount_due = invoice.total - invoice.amount_paid
+    if invoice.currency != "USD" or amount_due <= 0:
+        raise ConflictError(f"invoice {invoice.invoice_number} cannot be paid by card")
+    url = lemonsqueezy.create_checkout(
+        get_settings(),
+        invoice_id=invoice.id,
+        invoice_number=invoice.invoice_number,
+        amount=amount_due,
+        email=session.get(User, client.user_id).email,
+    )
+    return CheckoutOut(url=url)
 
 
 @router.get("/invoices/{invoice_id}/pdf")

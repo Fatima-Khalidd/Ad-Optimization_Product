@@ -4,8 +4,8 @@ import { useState } from "react";
 
 import { Table, Td, Th } from "@/components/admin/Table";
 import { apiFetch } from "@/lib/api";
-import { METHOD_LABELS } from "@/lib/billing";
-import { formatPKRExact } from "@/lib/format";
+import { PAYMENT_LABELS } from "@/lib/billing";
+import { formatMoneyExact } from "@/lib/format";
 import type { AdminPayment } from "@/lib/types";
 
 type Props = {
@@ -72,18 +72,18 @@ export default function PaymentQueue({ payments, onReviewed }: Props) {
                 <span className="tabular-nums">{payment.invoice_number}</span>
                 <br />
                 <span className="text-xs text-slate">
-                  {formatPKRExact(payment.invoice_total)} · due {payment.invoice_due_date}
+                  {formatMoneyExact(payment.invoice_total, payment.invoice_currency)} · due {payment.invoice_due_date}
                 </span>
                 {payment.invoice_is_overdue ? (
                   <span className="ml-2 rounded-full bg-coral/20 px-2 py-0.5 text-xs text-coral">Overdue</span>
                 ) : null}
               </Td>
               <Td>
-                {METHOD_LABELS[payment.method_type]}
+                {PAYMENT_LABELS[payment.method_type]}
                 <br />
                 <span className="tabular-nums">{payment.transaction_ref}</span>
               </Td>
-              <Td align="right">{formatPKRExact(payment.amount)}</Td>
+              <Td align="right">{formatMoneyExact(payment.amount, payment.invoice_currency)}</Td>
               <Td>{payment.paid_at}</Td>
               <Td>
                 {payment.has_proof ? (

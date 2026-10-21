@@ -1,11 +1,12 @@
 "use client";
 
+import CardCheckout from "@/components/billing/CardCheckout";
 import PaymentForm from "@/components/billing/PaymentForm";
 import PaymentHistory from "@/components/billing/PaymentHistory";
 import PaymentInstructions from "@/components/billing/PaymentInstructions";
 import StatusPill from "@/components/billing/StatusPill";
 import { clampedAmountDue, isOverdue, overpaidBy } from "@/lib/billing";
-import { formatPKRExact } from "@/lib/format";
+import { formatMoneyExact, formatPKRExact } from "@/lib/format";
 import type { Invoice, PaymentMethod } from "@/lib/types";
 
 type Props = {
@@ -17,6 +18,7 @@ type Props = {
 export default function InvoiceDetail({ invoice, methods, onSubmitted }: Props) {
   const payable = invoice.status === "issued" || invoice.status === "payment_submitted";
   const overpaid = overpaidBy(invoice);
+  const money = (amount: string) => formatMoneyExact(amount, invoice.currency);
   return (
     <section className="grid gap-6 rounded border border-slate/25 bg-surface p-5">
       <header className="grid gap-1">
@@ -35,28 +37,31 @@ export default function InvoiceDetail({ invoice, methods, onSubmitted }: Props) 
       <dl className="grid gap-2 text-sm">
         <div className="flex justify-between border-b border-slate/15 pb-1">
           <dt>Monthly base fee</dt>
-          <dd className="numeral">{formatPKRExact(invoice.base_fee)}</dd>
+          <dd className="numeral">{money(invoice.base_fee)}</dd>
         </div>
         <div className="flex justify-between border-b border-slate/15 pb-1">
-          <dt>Performance fee on {formatPKRExact(invoice.confirmed_recovered_waste)} recovered</dt>
-          <dd className="numeral">{formatPKRExact(invoice.performance_fee)}</dd>
+          <dt>
+            Performance fee on {formatPKRExact(invoice.confirmed_recovered_waste)} recovered
+            {invoice.pkr_per_usd ? ` (at ${formatPKRExact(invoice.pkr_per_usd)} per USD)` : null}
+          </dt>
+          <dd className="numeral">{money(invoice.performance_fee)}</dd>
         </div>
         <div className="flex justify-between border-b border-slate/15 pb-1">
           <dt>Total</dt>
-          <dd className="numeral">{formatPKRExact(invoice.total)}</dd>
+          <dd className="numeral">{money(invoice.total)}</dd>
         </div>
         <div className="flex justify-between border-b border-slate/15 pb-1">
           <dt>Confirmed payments</dt>
-          <dd className="numeral">{formatPKRExact(invoice.amount_paid)}</dd>
+          <dd className="numeral">{money(invoice.amount_paid)}</dd>
         </div>
         <div className="flex justify-between font-medium">
           <dt>Still owed</dt>
-          <dd className="numeral">{formatPKRExact(clampedAmountDue(invoice))}</dd>
+          <dd className="numeral">{money(clampedAmountDue(invoice))}</dd>
         </div>
         {overpaid ? (
           <div className="flex justify-between font-medium text-teal">
             <dt>Overpaid by</dt>
-            <dd className="numeral">{formatPKRExact(overpaid)}</dd>
+            <dd className="numeral">{money(overpaid)}</dd>
           </div>
         ) : null}
       </dl>
@@ -68,20 +73,27 @@ export default function InvoiceDetail({ invoice, methods, onSubmitted }: Props) 
         Download PDF
       </a>
 
+      {payable && invoice.pay_by_card && invoice.currency === "USD" ? (
+        <CardCheckout invoiceId={invoice.id} amount={money(clampedAmountDue(invoice))} />
+      ) : null}
+
       <div className="grid gap-3">
-        <h3 className="font-display text-lg">Where to pay</h3>
+        <h3 className="font-display text-lg">
+          {payable && invoice.pay_by_card ? "Or pay by bank transfer" : "Where to pay"}
+        </h3>
         <PaymentInstructions instructions={invoice.instructions} />
       </div>
 
       <div className="grid gap-3">
         <h3 className="font-display text-lg">Payment history</h3>
-        <PaymentHistory payments={invoice.payments} />
+        <PaymentHistory payments={invoice.payments} currency={invoice.currency} />
       </div>
 
       {payable ? (
         <PaymentForm
           invoiceId={invoice.id}
           methods={methods}
+          currency={invoice.currency}
           defaultAmount={Number(invoice.amount_due)}
           onSubmitted={onSubmitted}
         />

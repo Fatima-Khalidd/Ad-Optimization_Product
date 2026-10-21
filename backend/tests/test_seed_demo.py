@@ -54,9 +54,12 @@ def test_seed_creates_a_demo_client_with_an_approved_run(seeded_db):
         assert run.headline_waste is not None and run.headline_waste > 0
 
 
-def test_seed_also_creates_the_admin_that_approves_the_run(seeded_db):
+def test_seed_also_creates_the_admin_that_approves_the_run(seeded_db, monkeypatch):
     from scripts.seed_demo import main
 
+    # With auto-approval off the run waits for review, and the seed's admin approves it.
+    monkeypatch.setenv("AUTO_APPROVE_ANALYSES", "false")
+    get_settings.cache_clear()
     assert main() == 0
 
     with Session(seeded_db) as session:

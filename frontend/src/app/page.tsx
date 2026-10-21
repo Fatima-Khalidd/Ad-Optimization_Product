@@ -80,8 +80,8 @@ const FAQ = [
     a: "The analysis runs automatically after you upload a valid CSV. Your report appears as soon as processing completes.",
   },
   {
-    q: "What plan or access do I get?",
-    a: "Pricing, access duration and any deal limits depend on the offer you purchase. Check that offer’s terms for the details.",
+    q: "Do I pay the performance fee if nothing improves?",
+    a: "No. It is charged only on waste that actually goes down from one report to the next, and we agree that figure with you before anything is invoiced.",
   },
 ] as const;
 
@@ -144,20 +144,19 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Offer details are intentionally set by the purchase offer, not hard-coded here. */}
+      {/* Pricing: stated plainly in body copy, after the method — informative, not a sales block.
+          Keep in step with NEW_CLIENT_BASE_FEE / NEW_CLIENT_PERFORMANCE_FEE_PCT on the backend. */}
       <section className="border-t border-slate/15" id="pricing">
         <div className="mx-auto max-w-5xl px-6 py-28">
-          <h2 className="font-display text-3xl sm:text-4xl">Plans and access</h2>
+          <h2 className="font-display text-3xl sm:text-4xl">What it costs</h2>
           <p className="mt-6 max-w-2xl font-body leading-relaxed text-slate">
-            Pricing, access duration, and any usage limits are defined by the offer you purchase.
-            Your account is where you upload exports and use the analysis tools.
+            $65 a month, plus 20% of the ad waste you actually recover — measured by comparing one
+            month&rsquo;s report with the next, and agreed with you before it is billed. If nothing
+            improves, the monthly fee is all you pay.
           </p>
-          <Link
-            className="mt-8 inline-flex items-center justify-center rounded-sm bg-teal px-6 py-3 text-sm font-medium text-ink transition-colors hover:bg-teal/85"
-            href="/signup"
-          >
-            Create account
-          </Link>
+          <p className="mt-4 max-w-2xl font-body text-sm leading-relaxed text-slate">
+            Invoiced monthly in US dollars. Pay by card or bank transfer.
+          </p>
         </div>
       </section>
 

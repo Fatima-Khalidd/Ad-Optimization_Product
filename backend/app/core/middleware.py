@@ -37,7 +37,7 @@ _EXTRA_FIELDS = ("method", "path", "status", "duration_ms", "client_ip")
 
 
 class JsonFormatter(logging.Formatter):
-    """One JSON object per line, so Railway's log viewer can filter on the fields."""
+    """One JSON object per line, so Vercel's log viewer can filter on the fields."""
 
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, object] = {
@@ -106,7 +106,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         # F1: the same first-hop-of-X-Forwarded-For resolution the login rate limiter uses
         # (app.core.rate_limit.client_ip_key), so a lockout or an abuse pattern is
-        # diagnosable from the access log in production instead of showing Railway's
+        # diagnosable from the access log in production instead of showing the edge's
         # single proxy address for every request.
         client_ip = client_ip_key(request)
         incoming = request.headers.get(REQUEST_ID_HEADER)

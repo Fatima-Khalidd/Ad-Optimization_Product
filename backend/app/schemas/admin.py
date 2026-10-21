@@ -106,6 +106,8 @@ class AdminInvoiceOut(BaseModel):
     performance_fee: Decimal
     total: Decimal
     amount_paid: Decimal
+    currency: str
+    pkr_per_usd: Decimal | None = None
     status: str
     confirmed_by: int | None = None
     issued_at: datetime | None = None

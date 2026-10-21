@@ -56,3 +56,21 @@ class UnsupportedMediaError(AppError):
     """The bytes don't match any accepted file type (docs/PLAN.md section 6, proof uploads)."""
 
     status_code = 415
+
+
+class InvalidSignatureError(AppError):
+    """A webhook whose signature does not match - not from the gateway, or tampered with."""
+
+    status_code = 401
+
+
+class GatewayError(AppError):
+    """The payment gateway refused or failed a request we made to it."""
+
+    status_code = 502
+
+
+class ServiceUnavailableError(AppError):
+    """A feature this deployment has not been configured for (e.g. card payments)."""
+
+    status_code = 503

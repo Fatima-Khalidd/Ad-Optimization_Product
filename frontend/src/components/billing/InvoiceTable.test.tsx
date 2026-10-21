@@ -17,12 +17,15 @@ function invoice(overrides: Partial<Invoice> = {}): Invoice {
     total: "19600.00",
     amount_paid: "0.00",
     amount_due: "19600.00",
+    currency: "USD",
+    pkr_per_usd: "1.0000",
     status: "issued",
     issued_at: "2026-08-01T00:00:00Z",
     created_at: "2026-08-01T00:00:00Z",
     is_overdue: true,
     payments: [],
     instructions: [],
+    pay_by_card: false,
     ...overrides,
   };
 }
@@ -38,7 +41,7 @@ describe("InvoiceTable", () => {
     );
 
     expect(screen.getByText("Overdue")).toBeInTheDocument();
-    expect(screen.getAllByText("Rs. 19,600.00")).toHaveLength(2);
+    expect(screen.getAllByText("$19,600.00")).toHaveLength(2);
   });
 
   it("does not mark a paid invoice as overdue even with a past due date", () => {
@@ -69,9 +72,9 @@ describe("InvoiceTable", () => {
       />,
     );
 
-    expect(screen.queryByText("Rs. -5,000.00")).not.toBeInTheDocument();
-    expect(screen.getByText("Rs. 0.00")).toBeInTheDocument();
-    expect(screen.getByText(/overpaid by/i)).toHaveTextContent("Overpaid by Rs. 5,000.00");
+    expect(screen.queryByText("-$5,000.00")).not.toBeInTheDocument();
+    expect(screen.getByText("$0.00")).toBeInTheDocument();
+    expect(screen.getByText(/overpaid by/i)).toHaveTextContent("Overpaid by $5,000.00");
   });
 
   it("shows the empty state when there are no invoices", () => {

@@ -332,6 +332,22 @@ def test_admin_can_requeue_a_stale_running_run(api, db):
     assert response.json()["status"] == "queued"
 
 
+def test_requeue_starts_the_run_again(api, db, monkeypatch):
+    # Nothing sweeps for queued runs, so a requeue that only flipped the status would leave
+    # the run sitting in "queued" forever.
+    started: list[int] = []
+    monkeypatch.setattr("app.services.analysis.execute_run", started.append)
+    admin = make_admin(db)
+    client = make_client(db)
+    run = make_run(db, client, created_at=STALE, status="running", headline_waste=None)
+    db.commit()
+
+    login_as(api, admin)
+    api.post(f"/api/admin/runs/{run.id}/requeue")
+
+    assert started == [run.id]
+
+
 def test_requeuing_a_fresh_running_run_is_409(api, db):
     admin = make_admin(db)
     client = make_client(db)

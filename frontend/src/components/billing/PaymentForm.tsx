@@ -4,11 +4,13 @@ import { useState } from "react";
 
 import { apiFetch } from "@/lib/api";
 import { METHOD_LABELS } from "@/lib/billing";
+import type { Currency } from "@/lib/format";
 import type { Payment, PaymentMethod } from "@/lib/types";
 
 type Props = {
   invoiceId: number;
   methods: PaymentMethod[];
+  currency: Currency;
   defaultAmount: number;
   onSubmitted: () => void;
 };
@@ -29,7 +31,7 @@ function isValidAmount(value: string): boolean {
   return Number(value) > 0;
 }
 
-export default function PaymentForm({ invoiceId, methods, defaultAmount, onSubmitted }: Props) {
+export default function PaymentForm({ invoiceId, methods, currency, defaultAmount, onSubmitted }: Props) {
   const [methodType, setMethodType] = useState(methods[0]?.type ?? "jazzcash");
   const [transactionRef, setTransactionRef] = useState("");
   const [amount, setAmount] = useState(String(defaultAmount));
@@ -75,7 +77,7 @@ export default function PaymentForm({ invoiceId, methods, defaultAmount, onSubmi
       return;
     }
     if (!isValidAmount(amount)) {
-      setError("Enter an amount in PKR with at most 2 decimal places.");
+      setError(`Enter an amount in ${currency} with at most 2 decimal places.`);
       return;
     }
     const form = new FormData();
@@ -137,7 +139,7 @@ export default function PaymentForm({ invoiceId, methods, defaultAmount, onSubmi
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="grid gap-1 text-sm">
-          <span className="text-slate">Amount (PKR)</span>
+          <span className="text-slate">Amount ({currency})</span>
           <input
             className={FIELD}
             type="number"

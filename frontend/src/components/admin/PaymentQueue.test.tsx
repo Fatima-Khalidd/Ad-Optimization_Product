@@ -23,6 +23,7 @@ const PAYMENT: AdminPayment = {
   invoice_id: 7,
   invoice_number: "INV-2026-0001",
   invoice_total: "9600.00",
+  invoice_currency: "USD",
   invoice_due_date: "2026-08-14",
   invoice_status: "payment_submitted",
   invoice_is_overdue: false,

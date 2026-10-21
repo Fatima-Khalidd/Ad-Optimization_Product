@@ -6,6 +6,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.db import session_scope
+from app.core.settings import get_settings
 from app.models import AnalysisRun, Client
 from app.pipeline.analyzer import analyze_all_dimensions
 from app.pipeline.config import PipelineConfig
@@ -56,6 +58,38 @@ def test_analyze_returns_202_and_the_run_reaches_done(
     assert db.get(AnalysisRun, run["id"]).status == "done"
 
 
+def test_inline_dispatch_answers_with_the_finished_run(
+    client_a: TestClient, tmp_path: Path, monkeypatch
+):
+    # Serverless: the run must finish before the response, because the function is frozen
+    # after it. Under "background" this same response would still say "queued".
+    monkeypatch.setenv("ANALYSIS_DISPATCH", "inline")
+    get_settings.cache_clear()
+    upload_id = _upload(client_a, _sample_bytes(tmp_path))
+
+    response = client_a.post(f"/api/analyze/{upload_id}")
+
+    assert response.status_code == 202, response.text
+    assert response.json()["status"] == "done"
+    assert Decimal(response.json()["headline_waste"]) > 0
+
+
+def test_a_reused_in_flight_run_is_not_started_twice(
+    client_a: TestClient, tmp_path: Path, monkeypatch
+):
+    started: list[int] = []
+    monkeypatch.setattr("app.services.analysis.execute_run", started.append)
+    upload_id = _upload(client_a, _sample_bytes(tmp_path))
+    first = client_a.post(f"/api/analyze/{upload_id}").json()
+
+    # The stub never claims the run, so mark it as a worker would have.
+    with session_scope() as session:
+        session.get(AnalysisRun, first["id"]).status = "running"
+    client_a.post(f"/api/analyze/{upload_id}")
+
+    assert started == [first["id"]]
+
+
 def test_analyze_on_an_upload_that_failed_validation_is_422(client_a: TestClient):
     header = (
         "date,campaign_id,placement,age_group,gender,device,time_slot,"
@@ -81,7 +115,7 @@ def test_analyze_twice_in_a_row_does_not_duplicate_the_run(
     # both requests, which is the actual in-flight scenario create_run must dedupe; the
     # true post-execution path is covered separately by
     # test_analyze_returns_202_and_the_run_reaches_done.
-    monkeypatch.setattr("app.routers.analysis.execute_run", lambda run_id: None)
+    monkeypatch.setattr("app.services.analysis.execute_run", lambda run_id: None)
     upload_id = _upload(client_a, _sample_bytes(tmp_path))
 
     first = client_a.post(f"/api/analyze/{upload_id}")

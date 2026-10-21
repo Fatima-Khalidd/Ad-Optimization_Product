@@ -51,7 +51,7 @@ describe("PaymentForm", () => {
     async () => {
       const user = userEvent.setup();
       const onSubmitted = vi.fn();
-      render(<PaymentForm invoiceId={7} methods={METHODS} defaultAmount={9600} onSubmitted={onSubmitted} />);
+      render(<PaymentForm invoiceId={7} methods={METHODS} currency="USD" defaultAmount={9600} onSubmitted={onSubmitted} />);
 
       await user.selectOptions(screen.getByLabelText(/payment method/i), "raast");
       await user.clear(screen.getByLabelText(/transaction id/i));
@@ -79,7 +79,7 @@ describe("PaymentForm", () => {
 
   it("attaches the screenshot when one is chosen", async () => {
     const user = userEvent.setup();
-    render(<PaymentForm invoiceId={7} methods={METHODS} defaultAmount={9600} onSubmitted={vi.fn()} />);
+    render(<PaymentForm invoiceId={7} methods={METHODS} currency="USD" defaultAmount={9600} onSubmitted={vi.fn()} />);
     const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "proof.png", { type: "image/png" });
 
     await user.type(screen.getByLabelText(/transaction id/i), "JC-90003");
@@ -92,7 +92,7 @@ describe("PaymentForm", () => {
 
   it("defaults the amount to what is still owed and refuses an empty transaction id", async () => {
     const user = userEvent.setup();
-    render(<PaymentForm invoiceId={7} methods={METHODS} defaultAmount={9600} onSubmitted={vi.fn()} />);
+    render(<PaymentForm invoiceId={7} methods={METHODS} currency="USD" defaultAmount={9600} onSubmitted={vi.fn()} />);
 
     expect(screen.getByLabelText(/amount/i)).toHaveValue(9600);
 
@@ -103,7 +103,7 @@ describe("PaymentForm", () => {
 
   it("rejects an amount with more than 2 decimal places before submitting, without calling the API", async () => {
     const user = userEvent.setup();
-    render(<PaymentForm invoiceId={7} methods={METHODS} defaultAmount={9600} onSubmitted={vi.fn()} />);
+    render(<PaymentForm invoiceId={7} methods={METHODS} currency="USD" defaultAmount={9600} onSubmitted={vi.fn()} />);
 
     await user.type(screen.getByLabelText(/transaction id/i), "JC-90006");
     await user.clear(screen.getByLabelText(/amount/i));
@@ -121,7 +121,7 @@ describe("PaymentForm", () => {
         status: 409,
       }),
     );
-    render(<PaymentForm invoiceId={7} methods={METHODS} defaultAmount={9600} onSubmitted={vi.fn()} />);
+    render(<PaymentForm invoiceId={7} methods={METHODS} currency="USD" defaultAmount={9600} onSubmitted={vi.fn()} />);
 
     await user.type(screen.getByLabelText(/transaction id/i), "JC-90001");
     await user.click(screen.getByRole("button", { name: /submit payment/i }));
@@ -131,7 +131,7 @@ describe("PaymentForm", () => {
 
   it("rejects an oversize proof before uploading, without calling the API", async () => {
     const user = userEvent.setup();
-    render(<PaymentForm invoiceId={7} methods={METHODS} defaultAmount={9600} onSubmitted={vi.fn()} />);
+    render(<PaymentForm invoiceId={7} methods={METHODS} currency="USD" defaultAmount={9600} onSubmitted={vi.fn()} />);
     const big = new File([new Uint8Array(5 * 1024 * 1024 + 1)], "big.png", { type: "image/png" });
 
     await user.type(screen.getByLabelText(/transaction id/i), "JC-90004");
@@ -144,7 +144,7 @@ describe("PaymentForm", () => {
 
   it("rejects a proof that is not PNG, JPEG or PDF before uploading, without calling the API", async () => {
     const user = userEvent.setup();
-    render(<PaymentForm invoiceId={7} methods={METHODS} defaultAmount={9600} onSubmitted={vi.fn()} />);
+    render(<PaymentForm invoiceId={7} methods={METHODS} currency="USD" defaultAmount={9600} onSubmitted={vi.fn()} />);
     const wrong = new File([new Uint8Array([1, 2, 3])], "proof.gif", { type: "image/gif" });
 
     await user.type(screen.getByLabelText(/transaction id/i), "JC-90005");

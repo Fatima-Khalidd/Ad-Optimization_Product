@@ -10,7 +10,7 @@ from app.core.deps import CurrentClient
 from app.core.errors import InvalidUploadError
 from app.models import AnalysisRun
 from app.schemas.reports import RunOut
-from app.services.analysis import create_run, execute_run, get_run
+from app.services.analysis import create_run, dispatch_run, get_run
 
 router = APIRouter(prefix="/api", tags=["analysis"])
 
@@ -31,9 +31,7 @@ def start_analysis(
         # (Stage 6 validates on write, so this should be unreachable) - translated here
         # into a clean 422 rather than letting it fall through to a 500.
         raise InvalidUploadError(str(exc)) from exc
-    # No Redis in the MVP (docs/PLAN.md section 0): FastAPI BackgroundTasks. The task opens
-    # its own session, because this request's session is closed before it runs.
-    background_tasks.add_task(execute_run, run.id)
+    dispatch_run(session, run, background_tasks)
     return run
 
 

@@ -62,9 +62,10 @@ export default function PrivacyPage() {
         <h2>5. Who else sees it</h2>
         <p>
           No one, other than the service providers that run the software on our instructions:
-          Vercel (website hosting), Railway and Supabase (the application, its database and its file
-          storage, in the Mumbai region), and Sentry (error reporting, which records technical
-          faults and does not receive your advertising data). We do not sell your data, we do not
+          Vercel (the website and the application, run in the Mumbai region) and Supabase (the
+          database and file storage, in the Mumbai region), Lemon Squeezy (card payments: it
+          processes your card details directly, and we never see or store them), and Sentry (error
+          reporting, which records technical faults and does not receive your advertising data). We do not sell your data, we do not
           share it with other clients, and we do not use it to train any model. If we change
           provider, we will update this list.
         </p>

@@ -112,8 +112,10 @@ def _get_or_create_approved_run(
     if run.status != "done":
         raise RuntimeError(f"analysis run {run_id} finished as {run.status}: {run.error_message}")
 
-    approve_run(session, admin, run_id, APPROVAL_NOTE)
-    session.commit()
+    # AUTO_APPROVE_ANALYSES approves a successful run on its own; approving it again is a 409.
+    if run.review_status == "pending":
+        approve_run(session, admin, run_id, APPROVAL_NOTE)
+        session.commit()
     print(f"run {run_id} analysed and approved (headline waste {run.headline_waste})")
     return run
 

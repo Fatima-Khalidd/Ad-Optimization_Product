@@ -2,7 +2,7 @@
 
 import StatusPill from "@/components/billing/StatusPill";
 import { clampedAmountDue, isOverdue, overpaidBy } from "@/lib/billing";
-import { formatPKRExact } from "@/lib/format";
+import { formatMoneyExact } from "@/lib/format";
 import type { Invoice } from "@/lib/types";
 
 type Props = {
@@ -49,11 +49,11 @@ export default function InvoiceTable({ invoices, selectedId, onSelect }: Props) 
                   <span className="ml-2 rounded-full bg-coral/20 px-2 py-0.5 text-xs text-coral">Overdue</span>
                 ) : null}
               </td>
-              <td className="py-2 text-right numeral">{formatPKRExact(invoice.total)}</td>
+              <td className="py-2 text-right numeral">{formatMoneyExact(invoice.total, invoice.currency)}</td>
               <td className="py-2 text-right numeral">
-                {formatPKRExact(clampedAmountDue(invoice))}
+                {formatMoneyExact(clampedAmountDue(invoice), invoice.currency)}
                 {overpaid ? (
-                  <span className="block text-xs text-teal">Overpaid by {formatPKRExact(overpaid)}</span>
+                  <span className="block text-xs text-teal">Overpaid by {formatMoneyExact(overpaid, invoice.currency)}</span>
                 ) : null}
               </td>
               <td className="py-2">

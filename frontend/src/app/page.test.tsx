@@ -16,15 +16,16 @@ describe("landing page", () => {
     }
   });
 
-  it("leaves pricing and access terms to the purchase offer", () => {
-    render(<Home />);
+  it("states the price in dollars, low on the page and without its own sales button", () => {
+    const { container } = render(<Home />);
 
-    expect(screen.getByRole("heading", { name: "Plans and access" })).toBeInTheDocument();
-    expect(
-      screen.getByText(/pricing, access duration, and any usage limits are defined by the offer/i),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "What it costs" })).toBeInTheDocument();
+    expect(screen.getByText(/\$65 a month, plus 20% of the ad waste you actually recover/)).toBeInTheDocument();
     expect(screen.queryByText(/Rs\. 15,000/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/20%/)).not.toBeInTheDocument();
+    // Comes after the method section, never ahead of what the product does.
+    const ids = [...container.querySelectorAll("section[id]")].map((section) => section.id);
+    expect(ids.indexOf("pricing")).toBeGreaterThan(ids.indexOf("method"));
+    expect(container.querySelector("#pricing a")).toBeNull();
   });
 
   it("does not claim the analysis is AI", () => {

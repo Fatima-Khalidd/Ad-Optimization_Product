@@ -1,5 +1,5 @@
-import { METHOD_LABELS } from "@/lib/billing";
-import { formatPKRExact } from "@/lib/format";
+import { PAYMENT_LABELS } from "@/lib/billing";
+import { type Currency, formatMoneyExact } from "@/lib/format";
 import type { Payment } from "@/lib/types";
 
 const PAYMENT_TONE: Record<Payment["status"], string> = {
@@ -14,7 +14,7 @@ const PAYMENT_LABEL: Record<Payment["status"], string> = {
   rejected: "Rejected",
 };
 
-export default function PaymentHistory({ payments }: { payments: Payment[] }) {
+export default function PaymentHistory({ payments, currency }: { payments: Payment[]; currency: Currency }) {
   if (payments.length === 0) {
     return <p className="text-slate">No payments reported yet.</p>;
   }
@@ -24,9 +24,9 @@ export default function PaymentHistory({ payments }: { payments: Payment[] }) {
         <li key={payment.id} className="border-b border-slate/15 pb-2">
           <div className="flex flex-wrap justify-between gap-2">
             <span className="numeral">
-              {METHOD_LABELS[payment.method_type]} · {payment.transaction_ref}
+              {PAYMENT_LABELS[payment.method_type]} · {payment.transaction_ref}
             </span>
-            <span className="numeral">{formatPKRExact(payment.amount)}</span>
+            <span className="numeral">{formatMoneyExact(payment.amount, currency)}</span>
           </div>
           <div className="flex flex-wrap justify-between gap-2 text-xs">
             <span className="text-slate">

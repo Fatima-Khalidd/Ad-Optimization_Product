@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models import AuditLog, Client, Invoice, User
 from app.services.billing import confirm_invoice, draft_invoice, issue_invoice
-from tests.api.helpers import make_method
+from tests.api.helpers import NOT_YET_DUE, make_method
 
 
 def _issued_invoice(db: Session, admin: User, client: Client) -> Invoice:
@@ -17,13 +17,17 @@ def _issued_invoice(db: Session, admin: User, client: Client) -> Invoice:
 
     Commits at the end, because the HTTP calls that follow run on their own Session.
     """
+    # Signup gives new clients the configured defaults (0 in tests), so the fees this flow
+    # checks are set here, as the admin would on the client's page.
+    client.base_fee = Decimal("15000.00")
+    client.performance_fee_pct = Decimal("20.00")
     invoice = draft_invoice(db, admin, client.id, date(2026, 9, 1), date(2026, 9, 30))
     assert invoice.status == "draft"
     invoice = confirm_invoice(db, admin, invoice.id, Decimal("23000.00"))
     assert invoice.performance_fee == Decimal("4600.00")  # 20% of 23,000
     assert invoice.total == Decimal("19600.00")  # + the 15,000 base fee
     assert invoice.status == "draft"  # confirming a fee does not issue the invoice
-    invoice = issue_invoice(db, admin, invoice.id, date(2026, 10, 7))
+    invoice = issue_invoice(db, admin, invoice.id, NOT_YET_DUE)
     assert invoice.status == "issued"
     db.commit()
     return invoice

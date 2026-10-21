@@ -24,6 +24,7 @@ describe("PaymentHistory", () => {
   it("shows a rejected payment's review note so the client knows what to fix", () => {
     render(
       <PaymentHistory
+        currency="USD"
         payments={[payment({ status: "rejected", review_note: "transaction ID does not match our records" })]}
       />,
     );
@@ -33,7 +34,7 @@ describe("PaymentHistory", () => {
   });
 
   it("never labels a pending payment as paid or confirmed", () => {
-    render(<PaymentHistory payments={[payment({ status: "pending" })]} />);
+    render(<PaymentHistory currency="USD" payments={[payment({ status: "pending" })]} />);
 
     expect(screen.getByText("Awaiting review")).toBeInTheDocument();
     expect(screen.queryByText("Confirmed")).not.toBeInTheDocument();
@@ -41,7 +42,7 @@ describe("PaymentHistory", () => {
   });
 
   it("shows the empty state with no payments", () => {
-    render(<PaymentHistory payments={[]} />);
+    render(<PaymentHistory currency="USD" payments={[]} />);
     expect(screen.getByText(/no payments reported yet/i)).toBeInTheDocument();
   });
 });

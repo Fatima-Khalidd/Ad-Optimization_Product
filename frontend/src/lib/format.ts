@@ -1,6 +1,7 @@
 /**
- * Every rupee figure in the UI goes through formatPKR, and every percentage
- * through formatPct. Components must never format money themselves.
+ * Every money figure in the UI goes through formatMoney/formatMoneyExact (or the rupee
+ * shorthands formatPKR/formatPKRExact), and every percentage through formatPct.
+ * Components must never format money themselves.
  *
  * Both helpers accept the backend's native shape (a decimal STRING, e.g.
  * "84000.00" for money or "16.28" for recovery_pct — see
@@ -18,41 +19,59 @@ type Amount = number | string | null | undefined;
 
 const DASH = "—";
 
-/** Whole rupees with thousands separators: formatPKR(84000) -> "Rs. 84,000"; formatPKR("84000.00") -> same. */
-export function formatPKR(n: Amount): string {
-  if (n === null || n === undefined) return DASH;
+/**
+ * Ad spend is in rupees (the client's ad account currency); invoices carry their own
+ * currency — USD, or PKR for an invoice drafted before USD billing. Mirrors
+ * backend/app/services/payments.py CURRENCY_SYMBOLS.
+ */
+export type Currency = "USD" | "PKR";
+
+const SYMBOLS: Record<Currency, string> = { USD: "$", PKR: "Rs. " };
+
+/** Parse the backend's decimal string (or a number); null means "render a dash". */
+function parseAmount(n: Amount): number | null {
+  if (n === null || n === undefined) return null;
   if (typeof n === "string") {
-    if (n.trim().length === 0) return DASH;
+    if (n.trim().length === 0) return null;
     const parsed = Number(n);
-    if (!Number.isFinite(parsed)) return DASH;
-    return formatPKR(parsed);
+    return Number.isFinite(parsed) ? parsed : null;
   }
-  if (!Number.isFinite(n)) return "Rs. 0";
-  const rounded = Math.round(n); // round-half-up for display; negatives round toward +Infinity at .5, matching Math.round
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Whole units with thousands separators: formatMoney(84000, "PKR") -> "Rs. 84,000"; formatMoney("65.00", "USD") -> "$65". */
+export function formatMoney(n: Amount, currency: Currency): string {
+  const value = parseAmount(n);
+  if (value === null) return DASH;
+  const rounded = Math.round(value); // round-half-up for display; negatives round toward +Infinity at .5, matching Math.round
   const sign = rounded < 0 ? "-" : "";
-  return `${sign}Rs. ${Math.abs(rounded).toLocaleString("en-US")}`;
+  return `${sign}${SYMBOLS[currency]}${Math.abs(rounded).toLocaleString("en-US")}`;
 }
 
 /**
- * Exact rupees and paisa, two decimal places, with thousands separators:
- * formatPKRExact(4600.5) -> "Rs. 4,600.50"; formatPKRExact("4600.50") -> same.
+ * Exact amount, two decimal places, with thousands separators:
+ * formatMoneyExact(4600.5, "PKR") -> "Rs. 4,600.50"; formatMoneyExact("81.67", "USD") -> "$81.67".
  *
- * Same parsing and "—" rules as formatPKR, but never rounds — for the invoices screen,
+ * Same parsing and "—" rules as formatMoney, but never rounds — for the invoices screen,
  * where an admin has to defend the arithmetic (base fee + performance fee = total) to a
- * client, and independently-rounded whole-rupee figures can visibly fail to add up.
+ * client, and independently-rounded whole figures can visibly fail to add up.
  */
+export function formatMoneyExact(n: Amount, currency: Currency): string {
+  const value = parseAmount(n);
+  if (value === null) return DASH;
+  const sign = value < 0 ? "-" : "";
+  const [whole, fraction] = Math.abs(value).toFixed(2).split(".");
+  return `${sign}${SYMBOLS[currency]}${Number(whole).toLocaleString("en-US")}.${fraction}`;
+}
+
+/** Whole rupees: formatPKR(84000) -> "Rs. 84,000"; formatPKR("84000.00") -> same. */
+export function formatPKR(n: Amount): string {
+  return formatMoney(n, "PKR");
+}
+
+/** Exact rupees and paisa: formatPKRExact(4600.5) -> "Rs. 4,600.50". */
 export function formatPKRExact(n: Amount): string {
-  if (n === null || n === undefined) return DASH;
-  if (typeof n === "string") {
-    if (n.trim().length === 0) return DASH;
-    const parsed = Number(n);
-    if (!Number.isFinite(parsed)) return DASH;
-    return formatPKRExact(parsed);
-  }
-  if (!Number.isFinite(n)) return "Rs. 0.00";
-  const sign = n < 0 ? "-" : "";
-  const [whole, fraction] = Math.abs(n).toFixed(2).split(".");
-  return `${sign}Rs. ${Number(whole).toLocaleString("en-US")}.${fraction}`;
+  return formatMoneyExact(n, "PKR");
 }
 
 /**

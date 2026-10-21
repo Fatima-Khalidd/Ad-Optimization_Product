@@ -46,7 +46,7 @@ export default function ClientEditForm({ client }: { client: AdminClient }) {
   return (
     <form onSubmit={save} className="max-w-xl space-y-3 text-sm">
       <label className="block">
-        <span className="text-xs uppercase tracking-wide text-slate">Base fee (PKR)</span>
+        <span className="text-xs uppercase tracking-wide text-slate">Base fee (USD / month)</span>
         <input
           value={baseFee}
           onChange={(e) => setBaseFee(e.target.value)}

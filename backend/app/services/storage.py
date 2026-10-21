@@ -1,8 +1,9 @@
 """Uploaded files live behind this interface: local disk now, S3-compatible in Stage 8.
 
-docs/PLAN.md section 1 #9 — Railway and Render disks are wiped on redeploy, so nothing
-outside this module may assume a filesystem. `save()` returns the *key*, and that key is
-what goes into DB `file_path` columns, so the same row works against any backend.
+docs/PLAN.md section 1 #9 — hosted disks are wiped on redeploy and serverless functions have
+none, so nothing outside this module may assume a filesystem. `save()` returns the *key*,
+and that key is what goes into DB `file_path` columns, so the same row works against any
+backend.
 
 Keys look like ``uploads/{client_id}/{sha256}.csv`` or ``proofs/{client_id}/{payment_id}.{ext}``:
 POSIX-style relative paths, forward slashes only. Every entry point (`save`/`read`/`delete`)

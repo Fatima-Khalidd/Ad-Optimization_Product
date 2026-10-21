@@ -1,4 +1,4 @@
-import type { Invoice, InvoiceStatus, MethodType } from "@/lib/types";
+import type { Invoice, InvoiceStatus, MethodType, PaymentMethodType } from "@/lib/types";
 
 export const METHOD_LABELS: Record<MethodType, string> = {
   jazzcash: "JazzCash",
@@ -7,6 +7,9 @@ export const METHOD_LABELS: Record<MethodType, string> = {
   raast: "Raast",
   bank_iban: "Bank transfer (IBAN)",
 };
+
+/** Labels for a recorded payment, which can also have come in by card through the gateway. */
+export const PAYMENT_LABELS: Record<PaymentMethodType, string> = { ...METHOD_LABELS, card: "Card" };
 
 export const STATUS_LABELS: Record<InvoiceStatus, string> = {
   draft: "Draft",

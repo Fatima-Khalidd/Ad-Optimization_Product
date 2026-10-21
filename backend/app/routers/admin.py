@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -35,6 +35,7 @@ from app.services import admin as admin_service
 from app.services import audit as audit_service
 from app.services import billing as billing_service
 from app.services import payments as payments_service
+from app.services.analysis import dispatch_run
 from app.services.storage import get_storage
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -102,9 +103,19 @@ def reject_run(
 
 
 @router.post("/runs/{run_id}/requeue", response_model=RunAdminOut)
-def requeue_run(run_id: int, actor: CurrentAdmin, session: Session = Depends(get_session)):
-    """F5(e): admin escape hatch for a run a crashed worker left stuck in `running`."""
+def requeue_run(
+    run_id: int,
+    background_tasks: BackgroundTasks,
+    actor: CurrentAdmin,
+    session: Session = Depends(get_session),
+):
+    """F5(e): admin escape hatch for a run a crashed worker left stuck in `running`.
+
+    Nothing sweeps for `queued` runs, so the requeued run is started here, the same way
+    POST /api/analyze starts a new one.
+    """
     run = admin_service.requeue_run(session, actor, run_id)
+    dispatch_run(session, run, background_tasks)
     return admin_service.serialize_run(session, run)
 
 

@@ -13,6 +13,9 @@ os.environ["SECRET_KEY"] = "test-secret"
 os.environ["AUTO_APPROVE_ANALYSES"] = "true"
 os.environ["NEW_CLIENT_BASE_FEE"] = "0"
 os.environ["NEW_CLIENT_PERFORMANCE_FEE_PCT"] = "0"
+# A rate of 1 keeps every fee test's arithmetic readable (20% of 23,000 is 4,600); the
+# conversion itself is tested with a real rate in tests/services/test_billing_currency.py.
+os.environ["PKR_PER_USD"] = "1"
 
 
 @pytest.fixture(autouse=True)
