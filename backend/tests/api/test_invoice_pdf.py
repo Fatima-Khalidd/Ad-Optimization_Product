@@ -60,6 +60,24 @@ def test_a_usd_invoice_shows_the_rate_its_performance_fee_was_converted_at(db):
     assert "$81.67" in text
 
 
+def test_a_flat_price_invoice_has_no_performance_fee_line(db):
+    client = make_client(db, "owner-a@example.com", "Karachi Kicks")
+    invoice = make_invoice(
+        db,
+        client,
+        base_fee=Decimal("65.00"),
+        recovered=Decimal("0"),
+        pct=Decimal("0"),
+        total=Decimal("65.00"),
+    )
+
+    text = _text(build_invoice_pdf(invoice, client, INSTRUCTIONS))
+
+    assert "Monthly fee $65.00" in text
+    assert "Performance fee" not in text
+    assert "$65.00" in text
+
+
 def test_an_invoice_drafted_before_usd_billing_stays_in_rupees(db):
     client = make_client(db, "owner-a@example.com", "Karachi Kicks")
     invoice = make_invoice(db, client, currency="PKR")

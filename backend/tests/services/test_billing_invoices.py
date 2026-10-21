@@ -162,6 +162,21 @@ def test_confirm_rejects_a_negative_amount(session):
         billing.confirm_invoice(session, actor, invoice.id, Decimal("-1"))
 
 
+def test_a_flat_price_invoice_issues_without_confirming_a_fee(session):
+    actor = make_admin(session)
+    client = _client_with_23k_recovered(
+        session, base_fee=Decimal("65.00"), performance_fee_pct=Decimal("0")
+    )
+    session.commit()
+    invoice = billing.draft_invoice(session, actor, client.id, PERIOD_START, PERIOD_END)
+
+    issued = billing.issue_invoice(session, actor, invoice.id, date(2026, 9, 20))
+
+    assert issued.status == "issued"
+    assert issued.performance_fee == Decimal("0.00")
+    assert issued.total == Decimal("65.00")
+
+
 def test_issue_requires_a_confirmed_fee_then_sets_status_and_dates(session):
     actor = make_admin(session)
     client = _client_with_23k_recovered(session)

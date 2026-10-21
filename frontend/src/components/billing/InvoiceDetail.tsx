@@ -36,16 +36,19 @@ export default function InvoiceDetail({ invoice, methods, onSubmitted }: Props) 
 
       <dl className="grid gap-2 text-sm">
         <div className="flex justify-between border-b border-slate/15 pb-1">
-          <dt>Monthly base fee</dt>
+          <dt>Monthly fee</dt>
           <dd className="numeral">{money(invoice.base_fee)}</dd>
         </div>
-        <div className="flex justify-between border-b border-slate/15 pb-1">
-          <dt>
-            Performance fee on {formatPKRExact(invoice.confirmed_recovered_waste)} recovered
-            {invoice.pkr_per_usd ? ` (at ${formatPKRExact(invoice.pkr_per_usd)} per USD)` : null}
-          </dt>
-          <dd className="numeral">{money(invoice.performance_fee)}</dd>
-        </div>
+        {/* Flat-price invoices have no performance fee, so no $0.00 line. */}
+        {Number(invoice.performance_fee) > 0 ? (
+          <div className="flex justify-between border-b border-slate/15 pb-1">
+            <dt>
+              Performance fee on {formatPKRExact(invoice.confirmed_recovered_waste)} recovered
+              {invoice.pkr_per_usd ? ` (at ${formatPKRExact(invoice.pkr_per_usd)} per USD)` : null}
+            </dt>
+            <dd className="numeral">{money(invoice.performance_fee)}</dd>
+          </div>
+        ) : null}
         <div className="flex justify-between border-b border-slate/15 pb-1">
           <dt>Total</dt>
           <dd className="numeral">{money(invoice.total)}</dd>

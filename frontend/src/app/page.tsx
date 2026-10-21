@@ -80,8 +80,8 @@ const FAQ = [
     a: "The analysis runs automatically after you upload a valid CSV. Your report appears as soon as processing completes.",
   },
   {
-    q: "Do I pay the performance fee if nothing improves?",
-    a: "No. It is charged only on waste that actually goes down from one report to the next, and we agree that figure with you before anything is invoiced.",
+    q: "Is there anything on top of the monthly price?",
+    a: "No. It is one flat price, whatever your ad spend and however much waste we find. No setup fee and no share of your savings.",
   },
 ] as const;
 
@@ -145,14 +145,12 @@ export default function Home() {
       </section>
 
       {/* Pricing: stated plainly in body copy, after the method — informative, not a sales block.
-          Keep in step with NEW_CLIENT_BASE_FEE / NEW_CLIENT_PERFORMANCE_FEE_PCT on the backend. */}
+          Keep in step with NEW_CLIENT_BASE_FEE on the backend. */}
       <section className="border-t border-slate/15" id="pricing">
         <div className="mx-auto max-w-5xl px-6 py-28">
           <h2 className="font-display text-3xl sm:text-4xl">What it costs</h2>
           <p className="mt-6 max-w-2xl font-body leading-relaxed text-slate">
-            $65 a month, plus 20% of the ad waste you actually recover — measured by comparing one
-            month&rsquo;s report with the next, and agreed with you before it is billed. If nothing
-            improves, the monthly fee is all you pay.
+            $65 a month, one flat price — nothing on top, whatever your ad spend.
           </p>
           <p className="mt-4 max-w-2xl font-body text-sm leading-relaxed text-slate">
             Invoiced monthly in US dollars. Pay by card or bank transfer.

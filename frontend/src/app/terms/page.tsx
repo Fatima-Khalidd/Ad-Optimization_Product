@@ -69,9 +69,8 @@ export default function TermsPage() {
       <section>
         <h2>7. Fees and payment</h2>
         <p>
-          The service is billed monthly in US dollars: a fixed monthly fee, plus a performance fee
-          on the ad waste you recover, measured from one report to the next. We agree the recovered
-          figure with you before it is invoiced. Each invoice states its amounts and due date. Card
+          The service is billed monthly in US dollars at a flat monthly fee. Each invoice states its
+          amount and due date. Card
           payments are processed by Lemon Squeezy, which acts as the seller of record for them and
           may add sales tax where it applies; we never receive your card details. You may also pay
           by bank transfer using the details on the invoice. We do not collect payment details when

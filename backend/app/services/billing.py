@@ -347,7 +347,11 @@ def issue_invoice(session: Session, actor: User, invoice_id: int, due_date: date
     invoice = get_invoice(session, invoice_id)
     if invoice.status != "draft":
         raise ConflictError(f"invoice {invoice.invoice_number} is {invoice.status}, not draft")
-    if invoice.confirmed_by is None:
+    # A flat-price client (performance_fee_pct 0) has no recovered-waste figure to agree on.
+    charges_performance_fee = (
+        Decimal(get_client(session, invoice.client_id).performance_fee_pct) > 0
+    )
+    if charges_performance_fee and invoice.confirmed_by is None:
         raise ConflictError("confirm the performance fee before issuing")
 
     before = audit.snapshot(invoice, INVOICE_AUDIT_FIELDS)

@@ -112,6 +112,26 @@ describe("InvoiceDetail", () => {
     expect(screen.queryByRole("button", { name: /by card/i })).not.toBeInTheDocument();
   });
 
+  it("shows a flat-price invoice as one monthly fee, with no performance fee line", () => {
+    render(
+      <InvoiceDetail
+        invoice={invoice({
+          base_fee: "65.00",
+          confirmed_recovered_waste: "0.00",
+          performance_fee: "0.00",
+          total: "65.00",
+          amount_due: "65.00",
+        })}
+        methods={[]}
+        onSubmitted={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Monthly fee").nextSibling).toHaveTextContent("$65.00");
+    expect(screen.queryByText(/performance fee/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/^total$/i).nextSibling).toHaveTextContent("$65.00");
+  });
+
   it("keeps an invoice drafted before USD billing in rupees", () => {
     render(
       <InvoiceDetail invoice={invoice({ currency: "PKR", pkr_per_usd: null })} methods={[]} onSubmitted={vi.fn()} />,

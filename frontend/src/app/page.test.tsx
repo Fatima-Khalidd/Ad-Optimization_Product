@@ -20,8 +20,9 @@ describe("landing page", () => {
     const { container } = render(<Home />);
 
     expect(screen.getByRole("heading", { name: "What it costs" })).toBeInTheDocument();
-    expect(screen.getByText(/\$65 a month, plus 20% of the ad waste you actually recover/)).toBeInTheDocument();
+    expect(screen.getByText(/\$65 a month, one flat price/)).toBeInTheDocument();
     expect(screen.queryByText(/Rs\. 15,000/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/20%/)).not.toBeInTheDocument(); // no performance fee
     // Comes after the method section, never ahead of what the product does.
     const ids = [...container.querySelectorAll("section[id]")].map((section) => section.id);
     expect(ids.indexOf("pricing")).toBeGreaterThan(ids.indexOf("method"));

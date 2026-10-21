@@ -472,17 +472,23 @@ def build_invoice_pdf(
     )
     rows = [
         [Paragraph("<b>Item</b>", body), Paragraph("<b>Amount</b>", body)],
-        [Paragraph("Monthly base fee", body), Paragraph(money(invoice.base_fee), body)],
-        [
-            Paragraph(
-                "Performance fee on confirmed recovered waste of "
-                f"{_money(invoice.confirmed_recovered_waste, 'PKR')}{rate_note}",
-                body,
-            ),
-            Paragraph(money(invoice.performance_fee), body),
-        ],
-        [Paragraph("<b>Total due</b>", body), Paragraph(f"<b>{money(invoice.total)}</b>", body)],
+        [Paragraph("Monthly fee", body), Paragraph(money(invoice.base_fee), body)],
     ]
+    # Flat-price invoices carry no performance fee; a "$0.00" line would only raise questions.
+    if Decimal(invoice.performance_fee) > 0:
+        rows.append(
+            [
+                Paragraph(
+                    "Performance fee on confirmed recovered waste of "
+                    f"{_money(invoice.confirmed_recovered_waste, 'PKR')}{rate_note}",
+                    body,
+                ),
+                Paragraph(money(invoice.performance_fee), body),
+            ]
+        )
+    rows.append(
+        [Paragraph("<b>Total due</b>", body), Paragraph(f"<b>{money(invoice.total)}</b>", body)]
+    )
     if Decimal(invoice.amount_paid) > 0:
         balance = Decimal(invoice.total) - Decimal(invoice.amount_paid)
         rows.append([Paragraph("Already paid", body), Paragraph(money(invoice.amount_paid), body)])

@@ -131,7 +131,7 @@ cd frontend && npm run lint && npx tsc --noEmit && npm test && npm run build
 | `MAX_UPLOAD_MB` | backend | Per-file upload cap |
 | `AUTO_APPROVE_ANALYSES` | backend | Defaults to `true`; completed reports become available to their owner without admin review. Set `false` to require review |
 | `NEW_CLIENT_BASE_FEE`, `NEW_CLIENT_PERFORMANCE_FEE_PCT` | backend | Optional defaults for separately issued manual invoices; default to zero, not AppSumo plan or license settings |
-| `PKR_PER_USD` | backend | Invoices are in USD; the performance fee on rupee recovered waste is converted at this rate (default `276`), frozen onto each invoice when drafted |
+| `PKR_PER_USD` | backend | Invoices are in USD (a flat $65/month by default). If an admin sets a performance fee for a client, it is charged on rupee recovered waste converted at this rate (default `276`), frozen onto each invoice when drafted |
 | `SENTRY_DSN` | backend | Empty = Sentry off |
 | `STORAGE_BACKEND` | backend | `local` or `supabase` |
 | `STORAGE_ROOT` | backend | Directory used when `STORAGE_BACKEND=local` |
