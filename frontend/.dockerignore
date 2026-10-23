@@ -1,0 +1,15 @@
+# node_modules and .next are rebuilt inside the image; keeping them out of the context
+# is the difference between a ~2 MB upload and a ~500 MB one.
+node_modules/
+.next/
+out/
+coverage/
+.env
+.env.local
+.env.*.local
+.env.production
+npm-debug.log*
+Dockerfile
+.dockerignore
+*.tsbuildinfo
+next-env.d.ts

@@ -1,0 +1,20 @@
+# The Dockerfile copies explicit paths, so this only keeps the build context small
+# and, more importantly, keeps local secrets and data out of what is ever sent to
+# the Docker daemon.
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+ci.db
+dev.db
+*.db
+storage/
+.env
+.env.*
+!.env.example
+Dockerfile
+.dockerignore
+tests/__pycache__/

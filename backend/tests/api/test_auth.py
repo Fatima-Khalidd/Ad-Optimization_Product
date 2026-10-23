@@ -204,4 +204,6 @@ def test_logout_clears_both_cookies_and_me_then_fails(api, db):
 
 
 def test_health_still_works(api):
-    assert api.get("/api/health").json() == {"status": "ok", "env": "test"}
+    body = api.get("/api/health").json()
+    assert body["status"] == "ok"
+    assert body["env"] == "test"

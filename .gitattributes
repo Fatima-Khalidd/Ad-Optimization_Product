@@ -1,0 +1,10 @@
+# This repo is edited on Windows but the deployment targets are Linux, where the same
+# bytes are executed. A shell script with CRLF fails as `bash\r: bad interpreter` inside
+# the EC2 user-data step, which is the worst possible place to discover it.
+*.sh text eol=lf
+*.tpl text eol=lf
+Dockerfile text eol=lf
+*.tf text eol=lf
+*.tfvars text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

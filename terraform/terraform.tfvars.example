@@ -1,0 +1,29 @@
+# Copy to terraform.tfvars and edit before `terraform plan`.
+#   cp terraform.tfvars.example terraform.tfvars
+
+region            = "ap-south-1"
+project           = "ad-optimizer"
+owner_tag         = "fa22-xxxxx"
+decommission_after = "2026-11-01"
+
+repo_url = "https://github.com/Fatima-Khalidd/Ad-Optimization_Product.git"
+branch   = "main"
+
+# t3.medium: the boot step builds the frontend image. Do not drop this to t2.micro.
+instance_type   = "t3.medium"
+root_volume_gb  = 40
+
+# The paper asks for two application instances behind the balancer.
+min_size         = 2
+desired_capacity = 2
+max_size         = 4
+
+cpu_target_percentage = 60
+
+# Leave empty to reach instances only through Session Manager. Fill it in only if you
+# really want SSH, e.g. ["203.0.113.10/32"].
+ssh_cidrs = []
+
+# Optional: one shared Redis/ElastiCache endpoint so the login rate limit is counted
+# across instances instead of per node. Empty = process memory per instance.
+rate_limit_storage_uri = ""

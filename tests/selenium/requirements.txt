@@ -1,0 +1,6 @@
+# Section A task 6 (Selenium). Loose floors rather than pins: the browser bindings move
+# fast and the suite only relies on stable, long-standing APIs.
+pytest>=8.3
+selenium>=4.27
+webdriver-manager>=4.0.2
+requests>=2.32

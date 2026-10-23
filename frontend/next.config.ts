@@ -9,6 +9,13 @@ const nextConfig: NextConfig = {
   },
 };
 
+// Opt-in, not global: the self-contained `.next/standalone` server bundle is only what
+// frontend/Dockerfile copies. The Vercel build of this app predates it and must keep
+// building exactly as before, so the Docker build stage sets NEXT_STANDALONE_OUTPUT=1.
+if (process.env.NEXT_STANDALONE_OUTPUT === "1") {
+  nextConfig.output = "standalone";
+}
+
 // Without a DSN the plugin would still try to resolve an org/project at build time,
 // so local builds and CI use the bare config.
 export default process.env.NEXT_PUBLIC_SENTRY_DSN

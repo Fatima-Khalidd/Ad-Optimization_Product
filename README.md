@@ -9,6 +9,30 @@ plain-language budget recommendations. Design doc: `docs/PLAN.md`. Build plans:
 - `backend/` — FastAPI + SQLAlchemy + the analysis pipeline (Python 3.11)
 - `frontend/` — Next.js + Tailwind (Node 24)
 - `docs/` — product plan and implementation plans
+- `docker-compose.yml`, `*/Dockerfile` — the containerised stack
+- `terraform/` — AWS ALB + Auto Scaling Group
+- `scripts/` — bootstrap on EC2, Linux administration and volume-persistence demos
+- `tests/selenium/` — end-to-end tests against a deployed URL
+
+## Containerised deployment (DevOps)
+
+Everything under "Run locally" below is the everyday workflow — two processes on your
+laptop, no Docker. The containerised stack is documented separately, one file per concern:
+
+- [`docs/DEVOPS.md`](docs/DEVOPS.md) — index: task mapping, quick start, ports, decisions, troubleshooting
+- [`docs/devops-architecture.md`](docs/devops-architecture.md) — which service runs in which container and how they talk
+- [`docs/devops-aws-deploy.md`](docs/devops-aws-deploy.md) — ALB + Auto Scaling, step by step, with the live demos
+- [`docs/devops-viva-prep.md`](docs/devops-viva-prep.md) — questions by assessment criterion, with answers
+- [`docs/devops-evidence-checklist.md`](docs/devops-evidence-checklist.md) — what to screenshot, per task
+
+Bring the whole stack up in one command:
+
+```bash
+cp .env.example .env       # then set POSTGRES_PASSWORD, SECRET_KEY, DEMO_PASSWORD
+docker compose up -d --build
+docker compose --profile seed run --rm seed
+open http://localhost:3000 # demo@example.com / your DEMO_PASSWORD
+```
 
 ## Run locally
 

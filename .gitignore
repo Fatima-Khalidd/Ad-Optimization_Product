@@ -21,8 +21,17 @@ frontend/next-env.d.ts
 .env.local
 .env.*.local
 .env.production
+.demo-password
 .sentryclirc
 .superpowers/
+
+# Build & tooling artifacts
+backend/ci.db
+terraform/.terraform/
+terraform/*.tfstate*
+terraform/plan.out
+# Local overrides: may hold a real region/branch/roll number. Keep the example committed.
+terraform/terraform.tfvars
 
 # OS / editors
 .DS_Store

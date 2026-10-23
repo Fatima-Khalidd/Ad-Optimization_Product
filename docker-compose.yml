@@ -1,0 +1,231 @@
+# Task 5 (Docker Compose): one command brings up the whole product.
+#
+#   Frontend (Next.js :3000) -> backend (FastAPI :8000) -> Postgres :5432
+#                                          \------------> Redis :6379 (login rate limits)
+#
+# `data` is internal, so Postgres and Redis are unreachable from the host network; only
+# the two web-facing services sit on `app`. The Alembic migration is a one-shot service
+# rather than a line in the API entrypoint, because an Auto Scaling Group starts several
+# instances at once and each one running `alembic upgrade head` is a race.
+#
+# Copy .env.example to .env first - the ${VAR:?} guards below fail loudly if it is missing.
+
+name: ad-optimization
+
+x-backend-env: &backend-env
+  ENV: dev
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+  SECRET_KEY: ${SECRET_KEY:?copy .env.example to .env first}
+  STORAGE_BACKEND: local
+  STORAGE_ROOT: ./storage
+  MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
+  COOKIE_SECURE: "false"
+  AUTO_APPROVE_ANALYSES: "true"
+  RATE_LIMIT_STORAGE_URI: ${RATE_LIMIT_STORAGE_URI:-redis://redis:6379/0}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+  PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3000}
+  INSTANCE_LABEL: ${INSTANCE_LABEL:-}
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: adopt-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-adoptimizer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-adoptimizer}
+    volumes:
+      # Task 4: named volume, so the database survives `docker compose down` without -v.
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: adopt-redis
+    # Shared within this stack only: behind an Auto Scaling Group every instance runs its
+    # own Redis, so cross-instance limits need one ElastiCache endpoint for all nodes
+    # (see terraform/variables.tf -> rate_limit_storage_uri).
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - redisdata:/data
+    networks:
+      - data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: ./backend
+      target: runtime
+    image: adopt-backend:local
+    container_name: adopt-migrate
+    command: ["alembic", "upgrade", "head"]
+    environment: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - data
+    # Runs to completion and stays down; `backend` waits for this to exit 0.
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    image: adopt-backend:local
+    container_name: adopt-backend
+    environment: *backend-env
+    volumes:
+      # Uploaded CSVs and generated PDFs land here - a named volume, not a bind mount,
+      # so the files persist exactly like the database does.
+      - appstorage:/app/backend/storage
+    ports:
+      # Loopback by default, so the API is never open on the LAN from a laptop. On an EC2
+      # instance the load balancer targets this port directly, so the launch template sets
+      # BACKEND_BIND=0.0.0.0 and the instance security group allows 8000 from the ALB only.
+      - "${BACKEND_BIND:-127.0.0.1}:${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - app
+      - data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+    image: adopt-frontend:local
+    container_name: adopt-frontend
+    environment:
+      # Already baked into the rewrite table at build time; set at runtime too so the
+      # value is visible in `docker compose config`.
+      BACKEND_URL: http://backend:8000
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------- extras ----
+  # Opt-in helpers, kept out of the default project so `docker compose up` stays lean:
+  #
+  #   docker compose --profile seed run seed       # demo client + approved report
+  #   docker compose --profile test  run test      # pytest suite inside the image
+  #   docker compose --profile selenium up -d     # Chrome grid + Selenium spec
+  seed:
+    profiles: ["seed"]
+    image: adopt-backend:local
+    build:
+      context: ./backend
+      target: runtime
+    container_name: adopt-seed
+    command: ["python", "-m", "scripts.seed_demo"]
+    volumes:
+      # Same volume as the backend: seed_demo writes the CSV it uploads, and the API has
+      # to be able to read that file afterwards.
+      - appstorage:/app/backend/storage
+    environment:
+      <<: *backend-env
+      DEMO_PASSWORD: ${DEMO_PASSWORD:?set DEMO_PASSWORD in .env to run the seed}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - data
+    restart: "no"
+
+  test:
+    profiles: ["test"]
+    build:
+      context: ./backend
+      target: test
+    image: adopt-backend-test:local
+    container_name: adopt-backend-test
+    environment:
+      ENV: test
+      DATABASE_URL: "sqlite+pysqlite:///:memory:"
+      SECRET_KEY: container-test-secret
+      CORS_ORIGINS: http://localhost:3000
+      STORAGE_BACKEND: local
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - data
+    restart: "no"
+
+  chrome:
+    profiles: ["selenium"]
+    image: selenium/standalone-chrome:latest
+    container_name: adopt-chrome
+    shm_size: 2gb
+    ports:
+      - "127.0.0.1:4444:4444"
+    networks:
+      - app
+      - data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:4444/status || wget -q --spider http://localhost:4444/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  selenium:
+    profiles: ["selenium"]
+    build:
+      context: ./tests/selenium
+    container_name: adopt-selenium
+    environment:
+      APP_BASE_URL: http://frontend:3000
+      REMOTE_WEBDRIVER_URL: http://chrome:4444/wd/hub
+      DEMO_EMAIL: ${DEMO_EMAIL:-demo@example.com}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:?set DEMO_PASSWORD in .env}
+    depends_on:
+      frontend:
+        condition: service_healthy
+      chrome:
+        condition: service_healthy
+    networks:
+      - app
+    restart: "no"
+
+volumes:
+  pgdata:
+    name: adopt-pgdata
+  redisdata:
+    name: adopt-redisdata
+  appstorage:
+    name: adopt-appstorage
+
+networks:
+  app:
+    driver: bridge
+  data:
+    driver: bridge
+    internal: true

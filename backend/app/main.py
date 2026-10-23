@@ -1,4 +1,6 @@
 import logging
+import os
+import socket
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -111,7 +113,14 @@ def create_app() -> FastAPI:
 
     @application.get("/api/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "env": settings.env}
+        # `instance` is the container hostname (overridden by INSTANCE_LABEL on an EC2
+        # launch), so a request that lands on either Auto Scaling target is identifiable.
+        # The load balancer demo and the Selenium test both assert on this value.
+        return {
+            "status": "ok",
+            "env": settings.env,
+            "instance": os.environ.get("INSTANCE_LABEL") or socket.gethostname(),
+        }
 
     @application.exception_handler(AppError)
     async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
