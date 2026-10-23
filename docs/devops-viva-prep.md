@@ -231,6 +231,16 @@ systemd without a GUI. Note `apt install docker.io` also exists but ships an old
 Ubuntu-packaged version; `docker-ce` from Docker's repo is the standard for a production
 image.
 
+**Q: Your Windows build is too old for Docker Desktop. What is your Docker host, then?**
+An Ubuntu 24.04 Server VM on Hyper-V, with Docker Engine installed inside it by the same
+`get.docker.com` script the EC2 instances use (`docs/devops-windows-docker-host.md`).
+Build 18363 is below Docker Desktop's 19045 floor and WSL2 needs 19041, so neither inbox
+path exists — but Hyper-V is the layer Docker Desktop itself uses on older Windows to run a
+Linux daemon, so this is the same shape (Windows host → Linux VM → `dockerd` + Compose
+plugin) without the GUI or the version gate. The upside for the lab is that
+`systemctl is-active docker` and `chown`/`groupadd` are real here, and the images are
+Linux-native rather than running through a file-sharing shim.
+
 **Q: What makes a good image tag?**
 `:latest` is a lie in CI. I use `adopt-backend:local` for local demos and would use the
 git SHA for real deploys, because a rollback needs an immutable tag.

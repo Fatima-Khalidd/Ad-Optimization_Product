@@ -4,6 +4,7 @@ This is the exam-facing index. The application itself is documented in `README.m
 file covers containers, volumes, Linux administration, load balancing and testing.
 
 * [Architecture](devops-architecture.md) — what runs in which container and how they talk
+* [Windows Docker host](devops-windows-docker-host.md) — what to do if Docker Desktop will not install on your build
 * [AWS deployment](devops-aws-deploy.md) — ALB + Auto Scaling Group, step by step
 * [Viva preparation](devops-viva-prep.md) — questions by assessment criterion, with answers
 * [Evidence checklist](devops-evidence-checklist.md) — what to screenshot, per task
@@ -35,7 +36,10 @@ what to screenshot for Section A is in
 
 ## Quick start (one laptop)
 
-Needs Docker Desktop, ~15 minutes for the first build (pandas/numpy and the Next.js build).
+Needs a Linux Docker host with ~4 GB free to the daemon — Docker Desktop, or an Ubuntu VM
+as in [devops-windows-docker-host.md](devops-windows-docker-host.md) if your Windows build
+is below 19045 and the Desktop installer refuses. Expect ~15 minutes for the first build
+(pandas/numpy and the Next.js build).
 
 ```bash
 cp .env.example .env       # then set POSTGRES_PASSWORD, SECRET_KEY, DEMO_PASSWORD

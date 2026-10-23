@@ -4,8 +4,9 @@
 #
 #   git clone https://github.com/Fatima-Khalidd/Ad-Optimization_Product.git
 #   cd Ad-Optimization_Product
-#   sudo bash scripts/bootstrap-ec2.sh
+#   sudo BRANCH=devops-lab bash scripts/bootstrap-ec2.sh
 #
+# BRANCH matters: the Dockerfiles, Compose file and Terraform live on devops-lab, not main.
 # After it finishes the app is on http://<instance-public-dns>:3000 and the API on :8000.
 
 set -euo pipefail
@@ -65,6 +66,12 @@ INSTANCE_ID=$(curl -fsS -H "X-aws-ec2-metadata-token: ${TOKEN:-}" \
   http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || echo "unknown")
 AZ=$(curl -fsS -H "X-aws-ec2-metadata-token: ${TOKEN:-}" \
   http://169.254.169.254/latest/meta-data/placement/availability-zone 2>/dev/null || echo "unknown")
+# Off EC2 - a VirtualBox VM, a lab PC, Codespaces - there is no metadata service, and the
+# hostname labels the node just as well for the distribution demo.
+if [ "$INSTANCE_ID" = "unknown" ]; then
+  INSTANCE_ID="$(hostname)"
+  AZ="not-aws"
+fi
 echo "instance-id=$INSTANCE_ID  az=$AZ"
 
 echo

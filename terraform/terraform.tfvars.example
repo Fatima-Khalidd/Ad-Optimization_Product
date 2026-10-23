@@ -7,7 +7,10 @@ owner_tag         = "fa22-xxxxx"
 decommission_after = "2026-11-01"
 
 repo_url = "https://github.com/Fatima-Khalidd/Ad-Optimization_Product.git"
-branch   = "main"
+# Not "main": the Dockerfiles, docker-compose.yml and scripts/bootstrap-ec2.sh are on this
+# branch. An instance that clones main has no Compose file to run and user-data fails.
+# Change back to "main" only after devops-lab is merged.
+branch   = "devops-lab"
 
 # t3.medium: the boot step builds the frontend image. Do not drop this to t2.micro.
 instance_type   = "t3.medium"

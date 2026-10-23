@@ -49,7 +49,7 @@ If the examiner wants it live rather than scripted: `mkdir -p /tmp/demo/logs && 
 | Shot | Command | What must be legible |
 | --- | --- | --- |
 | 3a | `docker --version && docker compose version` | Versions |
-| 3b | `systemctl is-active docker` (EC2) or Docker Desktop tray (laptop) | `active` — the install actually runs |
+| 3b | `systemctl is-active docker` (EC2 or the Ubuntu VM) | `active` — the install actually runs. This is the command that only makes sense on a Linux host; on Docker Desktop the daemon is inside a VM and `systemctl docker` does not exist on Windows |
 | 3c | `docker build -t adopt-backend:local --target runtime backend/` | Layer progress, then `naming to docker.io/library/adopt-backend:local` |
 | 3d | `docker images` | `adopt-backend:local`, `adopt-frontend:local`, sizes |
 | 3e | `docker history adopt-backend:local` | The layer list — this is the multi-stage/caching answer made visible |

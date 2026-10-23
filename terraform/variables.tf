@@ -29,9 +29,9 @@ variable "repo_url" {
 }
 
 variable "branch" {
-  description = "Branch the launch template checks out."
+  description = "Branch the launch template checks out. Must contain docker-compose.yml — see terraform.tfvars.example."
   type        = string
-  default     = "main"
+  default     = "devops-lab"
 }
 
 variable "instance_type" {
