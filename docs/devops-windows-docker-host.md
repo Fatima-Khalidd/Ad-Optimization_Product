@@ -95,12 +95,23 @@ take the frontend and dashboard screenshots with a normal browser, not a console
 ## 6. Install Docker and bring the stack up
 
 ```bash
+# Swap first: the Next.js production build is OOM-killed without it, which is why the
+# EC2 user-data creates a swapfile before it calls the same script.
+sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile \
+  && sudo mkswap /swapfile && sudo swapon /swapfile
+free -h
+
 sudo apt-get update && sudo apt-get install -y git curl
 git clone --branch devops-lab \
   https://github.com/Fatima-Khalidd/Ad-Optimization_Product.git ad-optimizer
 cd ad-optimizer
-sudo BRANCH=devops-lab bash scripts/bootstrap-ec2.sh
+# APP_DIR keeps the running stack in this same clone instead of /opt/ad-optimizer.
+sudo BRANCH=devops-lab APP_DIR=$HOME/ad-optimizer bash scripts/bootstrap-ec2.sh
 ```
+
+Expect 10-20 minutes, most of it in the two image builds. On a 4 GB VM the backend
+image takes about 140 s and the frontend about 140 s; both `t3.medium` EC2 instances run
+the identical script with the identical result.
 
 `bootstrap-ec2.sh` was written for EC2 and does the same job here: it installs Docker
 Engine and the Compose plugin from `get.docker.com`, adds your user to the `docker` group,
@@ -112,6 +123,7 @@ the node with the VM hostname instead of an instance id — the script prints
 Then, as your normal user (log out and back in once so the `docker` group applies):
 
 ```bash
+sudo chown -R "$USER": ~/ad-optimizer    # the script ran as root and wrote .env at mode 600
 cd ~/ad-optimizer
 docker compose ps
 docker compose --profile seed run --rm seed
