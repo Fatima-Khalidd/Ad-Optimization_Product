@@ -1,0 +1,11 @@
+# Kept out of the image build context. node_modules is the important line: the lockfile is
+# installed inside the image by `npm ci`, and copying a Windows-built tree in here would install
+# platform-specific binaries that cannot run on the Linux host.
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+npm-debug.log*

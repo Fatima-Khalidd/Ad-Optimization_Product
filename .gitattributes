@@ -1,0 +1,9 @@
+# These files are executed on the Linux deployment host, where a trailing carriage return turns
+# "#!/usr/bin/env bash" into a search for an interpreter named "bash\r". Pinning eol=lf keeps them
+# LF in the working tree on Windows as well, so the clone on the instance is identical either way.
+*.sh text eol=lf
+Dockerfile text eol=lf
+.dockerignore text eol=lf
+.gitignore text eol=lf
+*.yml text eol=lf
+*.py text eol=lf

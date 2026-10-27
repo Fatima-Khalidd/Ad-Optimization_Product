@@ -1,0 +1,147 @@
+# Ad Spend Optimization — CSC418 lab stack.
+#
+# Four long-running containers: PostgreSQL, Redis, the FastAPI API and the Next.js frontend.
+# Two more are opt-in profiles: `seed` creates the schema and the demo report, `test` runs the
+# Selenium suite against the running stack.
+#
+#   docker compose up -d --build                  # the stack
+#   docker compose --profile seed run --rm migrate-and-seed
+#   docker compose --profile test up --build --abort-on-container-exit selenium-test
+#
+# Everything the containers need beyond the image comes from backend/.env, which is not in git and
+# not in any image (see backend/.dockerignore).
+
+name: ad-optimization
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: adoc
+      POSTGRES_PASSWORD: adoc
+      POSTGRES_DB: adoc
+    volumes:
+      # The only copy of the data. Deleting and recreating this container keeps the rows, because
+      # they live in the named volume rather than in the container's writable layer.
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U adoc -d adoc"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - data
+
+  redis:
+    image: redis:7-alpine
+    # Holds the login rate-limit counters only (app/core/rate_limit.py), so there is nothing here
+    # worth persisting to disk.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    restart: unless-stopped
+    networks:
+      - data
+
+  backend:
+    build:
+      context: ./backend
+    image: adopt-backend:lab
+    env_file: ./backend/.env
+    environment:
+      # Stated here as well so the container's wiring is readable without opening the untracked
+      # .env file. The env block below wins over env_file on conflict.
+      DATABASE_URL: postgresql+psycopg://adoc:adoc@postgres:5432/adoc
+      RATE_LIMIT_STORAGE_URI: redis://redis:6379/0
+      STORAGE_ROOT: /app/storage
+    volumes:
+      - uploads:/app/storage
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - data
+      - app
+
+  # One-shot: applies migrations, then seeds the demo client and one approved report. Idempotent —
+  # scripts/seed_demo.py looks every object up before creating it — so re-running is harmless.
+  migrate-and-seed:
+    profiles: ["seed"]
+    image: adopt-backend:lab
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://adoc:adoc@postgres:5432/adoc
+      RATE_LIMIT_STORAGE_URI: redis://redis:6379/0
+      STORAGE_ROOT: /app/storage
+    volumes:
+      - uploads:/app/storage
+    command: ["sh", "-c", "alembic upgrade head && python -m scripts.seed_demo"]
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - data
+      - app
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://backend:8000
+    image: adopt-frontend:lab
+    environment:
+      BACKEND_URL: http://backend:8000
+    ports:
+      # The single browser-facing port. The load balancer's target group points here, and its
+      # health check path /api/health is proxied to the backend by next.config.ts.
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app
+
+  # Chrome and its driver, as its own container. The test container below drives it over the
+  # network, which is what a Selenium Grid setup does in a real deployment.
+  selenium-hub:
+    profiles: ["test"]
+    image: selenium/standalone-chromium:latest
+    shm_size: 1gb
+    restart: "no"
+    networks:
+      - app
+
+  selenium-test:
+    profiles: ["test"]
+    build:
+      context: ./tests/selenium
+    image: adopt-selenium:lab
+    environment:
+      # Interpolated, so the same image can be pointed at the load balancer without editing this
+      # file:  APP_URL=http://<lab-alb-dns> docker compose --profile test up selenium-test
+      APP_URL: ${APP_URL:-http://frontend:3000}
+      SELENIUM_URL: ${SELENIUM_URL:-http://selenium-hub:4444/wd/hub}
+      DEMO_EMAIL: ${DEMO_EMAIL:-demo@example.com}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-demo-password-123}
+    depends_on:
+      - selenium-hub
+    restart: "no"
+    networks:
+      - app
+
+volumes:
+  pgdata:
+  uploads:
+
+networks:
+  # internal: true means no route to or from the outside world — the database and Redis are
+  # reachable only by containers on this network, and publish no host port.
+  data:
+    internal: true
+  app:

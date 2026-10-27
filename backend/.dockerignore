@@ -1,0 +1,14 @@
+# Kept out of the image build context. .env is the important line: configuration and secrets are
+# supplied by docker-compose at run time, so a build can never bake a secret into a layer.
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+storage/
+*.db
+.env
+.env.*
+tests/
+htmlcov/
+.coverage
