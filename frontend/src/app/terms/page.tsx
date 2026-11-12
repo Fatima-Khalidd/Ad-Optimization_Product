@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <PolicyLayout title="Terms of Service" updated="28 September 2026">
+    <PolicyLayout title="Terms of Service" updated="12 November 2026">
       <section>
         <h2>1. Who we are</h2>
         <p>
@@ -69,8 +69,10 @@ export default function TermsPage() {
       <section>
         <h2>7. Fees and payment</h2>
         <p>
-          The service is billed monthly in US dollars at a flat monthly fee. Each invoice states its
-          amount and due date. Card
+          The service is billed monthly in US dollars at a flat monthly fee: $65 for the standard
+          plan, which covers a single business&rsquo;s own advertising, or $149 for the Agency plan,
+          which covers up to 10 advertisers&rsquo; ad accounts that you manage and are authorised to
+          share. Each invoice states its amount and due date. Card
           payments are processed by Lemon Squeezy, which acts as the seller of record for them and
           may add sales tax where it applies; we never receive your card details. You may also pay
           by bank transfer using the details on the invoice. We do not collect payment details when

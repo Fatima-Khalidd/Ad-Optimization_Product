@@ -29,6 +29,19 @@ describe("landing page", () => {
     expect(container.querySelector("#pricing a")).toBeNull();
   });
 
+  it("states the Agency plan alongside the single-business price", () => {
+    render(<Home />);
+
+    expect(screen.getByText(/Agency plan is \$149 a month for up to 10/)).toBeInTheDocument();
+  });
+
+  it("tells visitors conversion tracking is required", () => {
+    render(<Home />);
+
+    expect(screen.getByText(/^What do I need set up first\?$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Conversion tracking\./)).toBeInTheDocument();
+  });
+
   it("does not claim the analysis is AI", () => {
     render(<Home />);
 

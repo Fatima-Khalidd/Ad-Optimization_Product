@@ -76,12 +76,24 @@ const FAQ = [
     a: "Date, campaign, placement, age group, time slot, spend, impressions, clicks and conversions. If columns are missing or malformed we tell you which rows and why, before anything is analysed.",
   },
   {
+    q: "What do I need set up first?",
+    a: "Conversion tracking. Your ad account must record purchases (through the Meta pixel or Google conversion tracking) or leads (through Lead Ads or a tracked form). If sales happen only in DMs or on WhatsApp, the export has no conversions column to measure, and the analysis cannot tell good spend from bad.",
+  },
+  {
+    q: "Is it worth it for a small budget?",
+    a: "Below about Rs. 250,000 a month it usually is not: there are too few conversions per segment to flag anything with confidence, and the fee is a large share of your spend.",
+  },
+  {
     q: "How long does it take?",
     a: "The analysis runs automatically after you upload a valid CSV. Your report appears as soon as processing completes.",
   },
   {
     q: "Is there anything on top of the monthly price?",
     a: "No. It is one flat price, whatever your ad spend and however much waste we find. No setup fee and no share of your savings.",
+  },
+  {
+    q: "I run ads for several clients. Which plan do I need?",
+    a: "The Agency plan: $149 a month for up to 10 advertisers' ad accounts, with every report downloadable as a PDF for your client meetings. Email us after you sign up and we will move your account onto it.",
   },
 ] as const;
 
@@ -145,12 +157,17 @@ export default function Home() {
       </section>
 
       {/* Pricing: stated plainly in body copy, after the method — informative, not a sales block.
-          Keep in step with NEW_CLIENT_BASE_FEE on the backend. */}
+          Keep in step with NEW_CLIENT_BASE_FEE on the backend. The Agency price is set per
+          client by an admin (base fee), so keep it in step with the Terms. */}
       <section className="border-t border-slate/15" id="pricing">
         <div className="mx-auto max-w-5xl px-6 py-28">
           <h2 className="font-display text-3xl sm:text-4xl">What it costs</h2>
           <p className="mt-6 max-w-2xl font-body leading-relaxed text-slate">
             $65 a month, one flat price — nothing on top, whatever your ad spend.
+          </p>
+          <p className="mt-4 max-w-2xl font-body leading-relaxed text-slate">
+            Running ads for clients? The Agency plan is $149 a month for up to 10 advertisers&rsquo;
+            ad accounts.
           </p>
           <p className="mt-4 max-w-2xl font-body text-sm leading-relaxed text-slate">
             Invoiced monthly in US dollars. Pay by card or bank transfer.

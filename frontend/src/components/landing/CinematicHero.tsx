@@ -107,7 +107,7 @@ export default function CinematicHero() {
         </div>
 
         <p className="mt-8 text-sm text-slate">
-          Built for businesses spending Rs. 100,000&ndash;500,000 a month on Meta and Google.
+          Built for businesses spending Rs. 250,000&ndash;1,500,000 a month on Meta and Google.
           No ad account access &mdash; one CSV export is enough.
         </p>
       </div>
