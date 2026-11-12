@@ -149,6 +149,11 @@ export default function UploadPanel() {
         </a>
         .
       </p>
+      <p className="mt-3 max-w-xl text-sm text-slate">
+        The conversions column must come from conversion tracking — purchases through the Meta pixel or
+        Google conversion tracking, or leads from Lead Ads. Without it there is nothing to measure each
+        segment against.
+      </p>
 
       <div
         className={`mt-10 flex flex-col items-center gap-4 rounded-sm border border-dashed px-6 py-16 text-center transition-colors ${
